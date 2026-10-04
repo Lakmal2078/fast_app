@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { ENV } from "./env";
+import { inMemoryStorage } from "../storage";
 
 export function registerStorageProxy(app: Express) {
   app.get("/manus-storage/*", async (req, res) => {
@@ -9,8 +10,16 @@ export function registerStorageProxy(app: Express) {
       return;
     }
 
+    // Check in-memory storage fallback first
+    const memoryItem = inMemoryStorage.get(key);
+    if (memoryItem) {
+      res.setHeader("Content-Type", memoryItem.contentType);
+      res.send(memoryItem.buffer);
+      return;
+    }
+
     if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
-      res.status(500).send("Storage proxy not configured");
+      res.status(404).send("File not found or storage proxy not configured");
       return;
     }
 

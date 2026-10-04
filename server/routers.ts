@@ -89,8 +89,8 @@ export const appRouter = router({
       const pending = await db.select().from(transactions).where(eq(transactions.status, "PENDING"));
       let verified = 0; let ambiguous = 0;
       for (const row of normalized) {
-        const refMatch = pending.filter((tx) => row.reference && row.reference.toLowerCase().includes(tx.reference.toLowerCase()));
-        const amountMatch = pending.filter((tx) => Number(tx.amount) === Number(row.amount) && (row.direction === "CREDIT" ? tx.type === "DEPOSIT" : tx.type === "WITHDRAWAL"));
+        const refMatch = pending.filter((tx: any) => row.reference && row.reference.toLowerCase().includes(tx.reference.toLowerCase()));
+        const amountMatch = pending.filter((tx: any) => Number(tx.amount) === Number(row.amount) && (row.direction === "CREDIT" ? tx.type === "DEPOSIT" : tx.type === "WITHDRAWAL"));
         const candidates = refMatch.length ? refMatch : amountMatch;
         const status = candidates.length === 1 ? "VERIFIED" : candidates.length > 1 ? "AMBIGUOUS" : "UNMATCHED";
         if (status === "VERIFIED") verified += 1; if (status === "AMBIGUOUS") ambiguous += 1;
@@ -110,7 +110,7 @@ export const appRouter = router({
       const db = await getDb(); if (!db) throw new Error("Database is not available.");
       const rows = await db.select().from(transactions).orderBy(desc(transactions.createdAt));
       const query = input?.search?.toLowerCase().trim();
-      return rows.filter((row) => (!query || `${row.reference} ${row.playerId} ${row.bank ?? ""}`.toLowerCase().includes(query)) && (!input?.status || input.status === "ALL" || row.status === input.status) && (!input?.type || input.type === "ALL" || row.type === input.type) && (!input?.paymentMethod || input.paymentMethod === "ALL" || row.paymentMethod === input.paymentMethod));
+      return rows.filter((row: any) => (!query || `${row.reference} ${row.playerId} ${row.bank ?? ""}`.toLowerCase().includes(query)) && (!input?.status || input.status === "ALL" || row.status === input.status) && (!input?.type || input.type === "ALL" || row.type === input.type) && (!input?.paymentMethod || input.paymentMethod === "ALL" || row.paymentMethod === input.paymentMethod));
     }),
     updateStatus: protectedProcedure.input(z.object({ id: z.number(), status: z.enum(["PENDING", "PROCESSING", "COMPLETED", "REJECTED"]), rejectionReason: z.string().trim().max(1000).optional() })).mutation(async ({ input, ctx }) => {
       if (ctx.user.role !== "admin") throw new Error("Administrator access required.");

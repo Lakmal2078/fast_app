@@ -2,20 +2,22 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
+import { createMockDb } from "./mockDb";
 
 let _db: ReturnType<typeof drizzle> | null = null;
+const _mockDb = createMockDb();
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
-export async function getDb() {
+// Lazily create the drizzle instance if DATABASE_URL is set, otherwise fall back to the in-memory mock.
+export async function getDb(): Promise<any> {
   if (!_db && process.env.DATABASE_URL) {
     try {
       _db = drizzle(process.env.DATABASE_URL);
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      console.warn("[Database] Failed to connect to MySQL, using in-memory mock DB:", error);
       _db = null;
     }
   }
-  return _db;
+  return _db || _mockDb;
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
@@ -24,10 +26,6 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
 
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
-    return;
-  }
 
   try {
     const values: InsertUser = {
@@ -79,14 +77,6 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
-  }
-
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
-  return result.length > 0 ? result[0] : undefined;
+  return result && result.length > 0 ? result[0] : undefined;
 }
-
-// TODO: add feature queries here as your schema grows.

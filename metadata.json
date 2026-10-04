@@ -1,0 +1,6 @@
+{
+  "name": "Fast Cash Sri Lanka",
+  "description": "Fast Cash Sri Lanka - Official agent operations bridging 1xBet wallet transactions with real-time status tracking.",
+  "permissions": [],
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
