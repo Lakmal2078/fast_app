@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary_neon_cyan">#00E0FF</color>
+    <color name="secondary_neon_pink">#FF2097</color>
+    <color name="background_dark">#05060A</color>
+    <color name="surface_dark">#0C0E18</color>
+    <color name="card_dark">#101424</color>
+    <color name="text_white">#F7F7FF</color>
+    <color name="text_muted">#858A9E</color>
+    <color name="status_green">#8CFF7B</color>
+</resources>

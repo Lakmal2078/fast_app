@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Fast Cash Sri Lanka</string>
+    <string name="tagline">Official Agent Operations // Sri Lanka</string>
+    <string name="hero_title">Your money moves at the speed of trust.</string>
+    <string name="hero_desc">A clear, trackable bridge between your 1xBet wallet and Fast Cash agents. Submit once. See every status. Stay in control.</string>
+    
+    <string name="nav_home">Home</string>
+    <string name="nav_deposit">Deposit</string>
+    <string name="nav_withdraw">Withdraw</string>
+    <string name="nav_track">Track</string>
+    <string name="nav_admin">Admin</string>
+    <string name="nav_support">Support</string>
+    
+    <string name="btn_start_deposit">Start Deposit</string>
+    <string name="btn_start_withdraw">Request Withdrawal</string>
+    <string name="btn_track">Track Request</string>
+    <string name="btn_save_profile">Save Profile</string>
+    <string name="btn_submit">Submit Secure Request</string>
+    
+    <string name="status_pending">PENDING</string>
+    <string name="status_processing">PROCESSING</string>
+    <string name="status_completed">COMPLETED</string>
+    <string name="status_rejected">REJECTED</string>
+    
+    <string name="network_balance_title">NETWORK BALANCE</string>
+    <string name="responsible_gaming">18+ only. Gambling should be entertainment. Never use borrowed money, and stop if it stops being fun.</string>
+</resources>
