@@ -32,7 +32,7 @@ class FastCashRepository(private val db: AppDatabase) {
                     paymentMethod = "Bank transfer",
                     bank = "Bank of Ceylon (BOC)",
                     accountNumber = "8823104921",
-                    createdAt = System.currentTimeMillis() - 3600000L
+                    timestamp = System.currentTimeMillis() - 3600000L
                 )
             )
             transactionDao.insert(
@@ -46,7 +46,7 @@ class FastCashRepository(private val db: AppDatabase) {
                     securityCode = "8914-XK",
                     bank = "Commercial Bank",
                     accountNumber = "1094002914",
-                    createdAt = System.currentTimeMillis() - 86400000L
+                    timestamp = System.currentTimeMillis() - 86400000L
                 )
             )
 
