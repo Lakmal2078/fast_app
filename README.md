@@ -1,8 +1,10 @@
 # Fast Cash Sri Lanka (Android)
 
-Official agent operations bridge between 1xBet player wallets and Fast Cash agents in Sri Lanka. Re-architected as a native Android application using Kotlin, Jetpack Compose, and Material 3.
+Official agent operations bridge between 1xBet player wallets and Fast Cash agents in Sri Lanka. Native Android application built using Kotlin, Jetpack Compose, and Material 3.
 
-## Features
+---
+
+## 🌟 Key Features
 
 - **Multi-Language Support**: Switch seamlessly between English, Sinhala (සිංහල), and Tamil (தமிழ்).
 - **Network Liquidity HUD**: Real-time network balance monitor with animated cyberpunk signal equalizer bars and active agent indicators.
@@ -32,9 +34,75 @@ Official agent operations bridge between 1xBet player wallets and Fast Cash agen
   - Direct WhatsApp link to official agents (`+94765865387`).
   - Responsible gambling disclosure (18+ rules) and privacy policy.
 
-## Architecture
+---
 
-- **UI**: Jetpack Compose, Material 3, Dark Neon Cyberpunk Theme (`#00E0FF` Cyan, `#FF2097` Pink).
+## 🏗️ Architecture & Tech Stack
+
+- **UI Framework**: Jetpack Compose, Material 3, Dark Neon Cyberpunk Theme (`#00E0FF` Cyan, `#FF2097` Pink).
 - **State Management**: Android `ViewModel`, Kotlin Coroutines, and `StateFlow`.
-- **Persistence**: Android Room Database (`AppDatabase`, `TransactionDao`, `NotificationDao`, `SettingsDao`).
+- **Local Persistence**: Android Room Database (`AppDatabase`, `TransactionDao`, `NotificationDao`, `SettingsDao`, `Converters`).
 - **Build System**: Gradle Kotlin DSL (`build.gradle.kts`, `settings.gradle.kts`, `libs.versions.toml`).
+- **CI/CD Pipeline**: GitHub Actions with Automated Testing & Debug APK Build Artifacts.
+
+---
+
+## 🚀 Getting Started & Build Instructions
+
+### Prerequisites
+- Android Studio Ladybug | 2024.2+ or higher (or JDK 21)
+- Android SDK Platform 35
+
+### Building the Project
+Clone the repository and run the Gradle build commands:
+
+```bash
+# Clone the repository
+git clone https://github.com/Lakmal2078/Manus_web.git
+cd Manus_web
+
+# Run Unit Tests
+./gradlew testDebugUnitTest
+
+# Assemble Debug APK
+./gradlew assembleDebug
+```
+
+The generated APK will be available in:
+`app/build/outputs/apk/debug/app-debug.apk`
+
+---
+
+## 📁 Project Structure
+
+```
+Manus_web/
+├── .github/workflows/
+│   └── android.yml            # Automated CI build and APK artifact generation
+├── app/
+│   ├── src/main/
+│   │   ├── AndroidManifest.xml
+│   │   ├── java/com/example/fastcash/
+│   │   │   ├── MainActivity.kt
+│   │   │   ├── data/
+│   │   │   │   ├── local/      # Room AppDatabase, DAOs, TypeConverters
+│   │   │   │   ├── model/      # Entity data models & Enums
+│   │   │   │   └── repository/ # FastCash Repository & initial seeding
+│   │   │   └── ui/
+│   │   │       ├── components/ # TopBar and common Cyberpunk UI widgets
+│   │   │       ├── screens/    # Home, Deposit, Withdraw, Track, Admin, Support
+│   │   │       ├── theme/      # Colors, Typography, Shapes
+│   │   │       └── viewmodel/  # FastCashViewModel & navigation states
+│   │   └── res/                # Drawables, mipmaps, colors, themes, strings
+│   └── build.gradle.kts
+├── gradle/
+│   ├── libs.versions.toml      # Dependency versions catalog
+│   └── wrapper/                # Gradle wrapper configuration
+├── build.gradle.kts
+├── gradlew
+└── settings.gradle.kts
+```
+
+---
+
+## 🔒 Security & Responsible Gaming
+Fast Cash LK is strictly intended for users 18 years of age and older. Always gamble responsibly.

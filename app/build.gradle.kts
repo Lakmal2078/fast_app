@@ -20,7 +20,7 @@ android {
     }
 
     signingConfigs {
-        create("debug") {
+        getByName("debug") {
             val ks = file("${rootDir}/debug.keystore")
             if (ks.exists()) {
                 storeFile = ks

@@ -18,6 +18,7 @@ import com.example.fastcash.data.model.*
     version = 1,
     exportSchema = false
 )
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun notificationDao(): NotificationDao
