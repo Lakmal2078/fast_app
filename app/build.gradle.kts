@@ -17,6 +17,8 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "BACKEND_BASE_URL", "\"https://fastcash-backend.workers.dev/\"")
     }
 
     signingConfigs {
@@ -34,6 +36,7 @@ android {
     buildTypes {
         debug {
             signingConfig = signingConfigs.getByName("debug")
+            buildConfigField("String", "BACKEND_BASE_URL", "\"https://fastcash-backend.workers.dev/\"")
         }
         release {
             isMinifyEnabled = false
@@ -41,6 +44,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("String", "BACKEND_BASE_URL", "\"https://fastcash-backend.workers.dev/\"")
         }
     }
     compileOptions {
@@ -52,6 +56,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -73,6 +78,13 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.kotlinx.coroutines.android)
+
+    // Networking & Serialization
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
+    implementation(libs.gson)
 
     debugImplementation(libs.androidx.ui.tooling)
 }

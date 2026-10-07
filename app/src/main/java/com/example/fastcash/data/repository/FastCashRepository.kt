@@ -2,11 +2,17 @@ package com.example.fastcash.data.repository
 
 import com.example.fastcash.data.local.AppDatabase
 import com.example.fastcash.data.model.*
+import com.example.fastcash.data.remote.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
-class FastCashRepository(private val db: AppDatabase) {
+class FastCashRepository(
+    private val db: AppDatabase,
+    private val api: FastCashApiService = NetworkClient.apiService
+) {
     private val transactionDao = db.transactionDao()
     private val notificationDao = db.notificationDao()
     private val settingsDao = db.settingsDao()
@@ -122,6 +128,71 @@ class FastCashRepository(private val db: AppDatabase) {
                 )
             )
         }
+
+        // Attempt initial sync from Cloudflare backend
+        syncFromRemote()
+    }
+
+    /**
+     * Syncs remote Cloudflare Worker state into local Room DB (Offline-First cache)
+     */
+    suspend fun syncFromRemote() = withContext(Dispatchers.IO) {
+        runCatching {
+            val response = api.getTransactions()
+            if (response.isSuccessful) {
+                response.body()?.forEach { dto ->
+                    val entity = TransactionEntity(
+                        id = dto.id,
+                        reference = dto.reference,
+                        type = runCatching { TransactionType.valueOf(dto.type) }.getOrDefault(TransactionType.DEPOSIT),
+                        status = runCatching { TransactionStatus.valueOf(dto.status) }.getOrDefault(TransactionStatus.PENDING),
+                        amount = dto.amount,
+                        playerId = dto.playerId,
+                        paymentMethod = dto.paymentMethod,
+                        securityCode = dto.securityCode,
+                        bank = dto.bank,
+                        accountNumber = dto.accountNumber,
+                        contactNumber = dto.contactNumber,
+                        receiptKey = dto.receiptKey,
+                        rejectionReason = dto.rejectionReason,
+                        timestamp = dto.timestamp
+                    )
+                    transactionDao.insert(entity)
+                }
+            }
+
+            // Sync Agent Accounts
+            val agentResponse = api.getAgentAccounts()
+            if (agentResponse.isSuccessful) {
+                agentResponse.body()?.forEach { dto ->
+                    settingsDao.insertAgentAccount(
+                        AgentAccountEntity(
+                            id = dto.id,
+                            label = dto.label,
+                            accountNumber = dto.accountNumber,
+                            method = dto.method,
+                            isActive = dto.isActive == 1
+                        )
+                    )
+                }
+            }
+
+            // Sync Notifications
+            val notifResponse = api.getNotifications()
+            if (notifResponse.isSuccessful) {
+                notifResponse.body()?.forEach { dto ->
+                    notificationDao.insert(
+                        NotificationEntity(
+                            id = dto.id,
+                            title = dto.title,
+                            message = dto.message,
+                            isRead = dto.isRead == 1,
+                            createdAt = dto.createdAt
+                        )
+                    )
+                }
+            }
+        }
     }
 
     private fun generateReference(): String {
@@ -134,8 +205,29 @@ class FastCashRepository(private val db: AppDatabase) {
         playerId: String,
         paymentMethod: String,
         receiptKey: String?
-    ): String {
-        val reference = generateReference()
+    ): String = withContext(Dispatchers.IO) {
+        var reference = generateReference()
+        val timestamp = System.currentTimeMillis()
+
+        // Attempt Cloudflare API write
+        val remoteCall = runCatching {
+            api.createDeposit(
+                DepositRequest(
+                    amount = amount,
+                    playerId = playerId,
+                    paymentMethod = paymentMethod,
+                    receiptKey = receiptKey
+                )
+            )
+        }
+
+        if (remoteCall.isSuccess && remoteCall.getOrNull()?.isSuccessful == true) {
+            val res = remoteCall.getOrNull()!!.body()
+            if (res != null) {
+                reference = res.reference
+            }
+        }
+
         val transaction = TransactionEntity(
             reference = reference,
             type = TransactionType.DEPOSIT,
@@ -143,7 +235,8 @@ class FastCashRepository(private val db: AppDatabase) {
             amount = amount,
             playerId = playerId,
             paymentMethod = paymentMethod,
-            receiptKey = receiptKey
+            receiptKey = receiptKey,
+            timestamp = timestamp
         )
         transactionDao.insert(transaction)
         notificationDao.insert(
@@ -152,7 +245,7 @@ class FastCashRepository(private val db: AppDatabase) {
                 message = "Request $reference for LKR $amount submitted and under review."
             )
         )
-        return reference
+        reference
     }
 
     suspend fun createWithdrawal(
@@ -162,8 +255,31 @@ class FastCashRepository(private val db: AppDatabase) {
         bank: String,
         accountNumber: String,
         contactNumber: String
-    ): String {
-        val reference = generateReference()
+    ): String = withContext(Dispatchers.IO) {
+        var reference = generateReference()
+        val timestamp = System.currentTimeMillis()
+
+        // Attempt Cloudflare API write
+        val remoteCall = runCatching {
+            api.createWithdrawal(
+                WithdrawalRequest(
+                    amount = amount,
+                    playerId = playerId,
+                    securityCode = securityCode,
+                    bank = bank,
+                    accountNumber = accountNumber,
+                    contactNumber = contactNumber
+                )
+            )
+        }
+
+        if (remoteCall.isSuccess && remoteCall.getOrNull()?.isSuccessful == true) {
+            val res = remoteCall.getOrNull()!!.body()
+            if (res != null) {
+                reference = res.reference
+            }
+        }
+
         val transaction = TransactionEntity(
             reference = reference,
             type = TransactionType.WITHDRAWAL,
@@ -174,7 +290,8 @@ class FastCashRepository(private val db: AppDatabase) {
             securityCode = securityCode,
             bank = bank,
             accountNumber = accountNumber,
-            contactNumber = contactNumber
+            contactNumber = contactNumber,
+            timestamp = timestamp
         )
         transactionDao.insert(transaction)
         notificationDao.insert(
@@ -183,14 +300,54 @@ class FastCashRepository(private val db: AppDatabase) {
                 message = "Request $reference for LKR $amount submitted and queued for payout."
             )
         )
-        return reference
+        reference
     }
 
-    suspend fun findTransactionByReference(ref: String): TransactionEntity? {
-        return transactionDao.getByReference(ref.trim())
+    suspend fun findTransactionByReference(ref: String): TransactionEntity? = withContext(Dispatchers.IO) {
+        val trimmed = ref.trim()
+
+        // Check remote Cloudflare API first
+        runCatching {
+            val response = api.getTransactionByReference(trimmed)
+            if (response.isSuccessful && response.body() != null) {
+                val dto = response.body()!!
+                val entity = TransactionEntity(
+                    id = dto.id,
+                    reference = dto.reference,
+                    type = runCatching { TransactionType.valueOf(dto.type) }.getOrDefault(TransactionType.DEPOSIT),
+                    status = runCatching { TransactionStatus.valueOf(dto.status) }.getOrDefault(TransactionStatus.PENDING),
+                    amount = dto.amount,
+                    playerId = dto.playerId,
+                    paymentMethod = dto.paymentMethod,
+                    securityCode = dto.securityCode,
+                    bank = dto.bank,
+                    accountNumber = dto.accountNumber,
+                    contactNumber = dto.contactNumber,
+                    receiptKey = dto.receiptKey,
+                    rejectionReason = dto.rejectionReason,
+                    timestamp = dto.timestamp
+                )
+                transactionDao.insert(entity)
+                return@withContext entity
+            }
+        }
+
+        // Fallback to local Room Database cache
+        transactionDao.getByReference(trimmed)
     }
 
-    suspend fun updateTransactionStatus(id: Long, status: TransactionStatus, reason: String? = null) {
+    suspend fun updateTransactionStatus(id: Long, status: TransactionStatus, reason: String? = null) = withContext(Dispatchers.IO) {
+        // Update on Cloudflare API
+        runCatching {
+            api.updateTransactionStatus(
+                id = id,
+                request = AdminUpdateStatusRequest(
+                    status = status.name,
+                    reason = reason
+                )
+            )
+        }
+
         val tx = transactionDao.getById(id)
         transactionDao.updateStatus(id, status, reason)
         if (tx != null) {
@@ -213,7 +370,8 @@ class FastCashRepository(private val db: AppDatabase) {
         notificationDao.markAsRead(id)
     }
 
-    suspend fun markAllNotificationsAsRead() {
+    suspend fun markAllNotificationsAsRead() = withContext(Dispatchers.IO) {
+        runCatching { api.markAllNotificationsAsRead() }
         notificationDao.markAllAsRead()
     }
 

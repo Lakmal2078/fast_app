@@ -370,4 +370,10 @@ class FastCashViewModel(application: Application) : AndroidViewModel(application
             repository.markAllNotificationsAsRead()
         }
     }
+
+    fun refreshData() {
+        viewModelScope.launch {
+            repository.syncFromRemote()
+        }
+    }
 }
