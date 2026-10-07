@@ -4,11 +4,17 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.example.fastcash.data.model.*
+import androidx.room.TypeConverters
+import com.example.fastcash.data.model.AgentAccountEntity
+import com.example.fastcash.data.model.AppSettingsEntity
+import com.example.fastcash.data.model.NotificationEntity
+import com.example.fastcash.data.model.ReconRowEntity
+import com.example.fastcash.data.model.Transaction
+import com.example.fastcash.data.model.UserProfileEntity
 
 @Database(
     entities = [
-        TransactionEntity::class,
+        Transaction::class,
         NotificationEntity::class,
         UserProfileEntity::class,
         AppSettingsEntity::class,
