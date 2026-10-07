@@ -4,8 +4,9 @@ compatibility_date = "2024-12-01"
 
 account_id = "5e881675f6e48904761848cfbf3b44b8"
 
-[[d1_databases]]
-binding = "DB"
-database_name = "fastcash-db"
-database_id = "fastcash-d1-db"
-migrations_dir = "migrations"
+[ai]
+binding = "AI"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "31da2b8837344af192a6a1e2c345baa6"

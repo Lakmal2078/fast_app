@@ -45,4 +45,9 @@ interface FastCashApiService {
 
     @GET("api/settings")
     suspend fun getSettings(): Response<AppSettingsDto>
+
+    @POST("api/slips/verify-ocr")
+    suspend fun verifySlipOcr(
+        @Body request: SlipVerifyRequest
+    ): Response<SlipVerifyResponse>
 }

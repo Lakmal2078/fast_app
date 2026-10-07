@@ -18,7 +18,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "BACKEND_BASE_URL", "\"https://fastcash-backend.workers.dev/\"")
+        buildConfigField("String", "BACKEND_BASE_URL", "\"https://fastcash-backend.agent-1xfast-srilanka.workers.dev/\"")
     }
 
     signingConfigs {
@@ -36,7 +36,7 @@ android {
     buildTypes {
         debug {
             signingConfig = signingConfigs.getByName("debug")
-            buildConfigField("String", "BACKEND_BASE_URL", "\"https://fastcash-backend.workers.dev/\"")
+            buildConfigField("String", "BACKEND_BASE_URL", "\"https://fastcash-backend.agent-1xfast-srilanka.workers.dev/\"")
         }
         release {
             isMinifyEnabled = false
@@ -44,7 +44,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "BACKEND_BASE_URL", "\"https://fastcash-backend.workers.dev/\"")
+            buildConfigField("String", "BACKEND_BASE_URL", "\"https://fastcash-backend.agent-1xfast-srilanka.workers.dev/\"")
         }
     }
     compileOptions {

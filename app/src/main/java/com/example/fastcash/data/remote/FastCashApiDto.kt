@@ -78,3 +78,25 @@ data class AppSettingsDto(
     val maxTransaction: Long,
     val promoCode: String
 )
+
+data class SlipVerifyRequest(
+    val image_base64: String,
+    val expected_amount: Long? = null,
+    val expected_reference: String? = null
+)
+
+data class ExtractedSlipData(
+    val bank: String,
+    val amount: Long,
+    val reference: String,
+    val date: String,
+    val status: String,
+    val confidence: Double,
+    val raw_text: String? = null
+)
+
+data class SlipVerifyResponse(
+    val success: Boolean,
+    val data: ExtractedSlipData,
+    val timestamp: Long
+)
