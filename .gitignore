@@ -126,3 +126,6 @@ debug.keystore
 # Firebase emulator logs
 *-debug.log
 
+
+# Local Firebase Android configuration (provided by CI secret)
+/app/google-services.json
