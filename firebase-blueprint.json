@@ -1,0 +1,232 @@
+{
+  "entities": {
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Customer deposit or withdrawal request synced between player and Fast Cash agent.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the requesting player."
+        },
+        "userEmail": {
+          "type": "string",
+          "description": "Email of the signed-in player."
+        },
+        "userName": {
+          "type": "string",
+          "description": "Display name of the signed-in player."
+        },
+        "reference": {
+          "type": "string",
+          "description": "Unique human-readable reference code (e.g. TXN-7F42A9C1)."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["DEPOSIT", "WITHDRAWAL"],
+          "description": "Transaction direction."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["PENDING", "PROCESSING", "COMPLETED", "REJECTED"],
+          "description": "Current processing status."
+        },
+        "amount": {
+          "type": "integer",
+          "description": "Amount in LKR (1000 to 500000)."
+        },
+        "playerId": {
+          "type": "string",
+          "description": "1xBet Player ID."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Deposit payment method or Bank payout."
+        },
+        "agentAccountLabel": {
+          "type": "string",
+          "description": "Selected Fast Cash destination bank or iPay account label."
+        },
+        "agentAccountNumber": {
+          "type": "string",
+          "description": "Selected Fast Cash destination account or iPay number."
+        },
+        "receiptKey": {
+          "type": "string",
+          "description": "Optional bank transfer slip or receipt reference."
+        },
+        "securityCode": {
+          "type": "string",
+          "description": "1xBet Cash withdrawal security code."
+        },
+        "bank": {
+          "type": "string",
+          "description": "Recipient bank name for withdrawals."
+        },
+        "accountNumber": {
+          "type": "string",
+          "description": "Recipient bank account number for withdrawals."
+        },
+        "contactNumber": {
+          "type": "string",
+          "description": "Player contact or WhatsApp number."
+        },
+        "rejectionReason": {
+          "type": "string",
+          "description": "Agent rejection reason when status is REJECTED."
+        },
+        "agentNote": {
+          "type": "string",
+          "description": "Agent status note (e.g. MobCash deposit credited to 1xBet)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "reference",
+        "type",
+        "status",
+        "amount",
+        "playerId",
+        "paymentMethod",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Saved customer profile details for pre-filling transactions.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the player."
+        },
+        "name": {
+          "type": "string",
+          "description": "Player full name."
+        },
+        "playerId": {
+          "type": "string",
+          "description": "Saved 1xBet Player ID."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": ["userId", "name", "playerId", "createdAt", "updatedAt"]
+    },
+    "NotificationItem": {
+      "title": "NotificationItem",
+      "description": "In-app notification delivered to a player when a request is submitted or updated by the agent.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Notification title."
+        },
+        "message": {
+          "type": "string",
+          "description": "Notification details."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["SUBMITTED", "PROCESSING", "COMPLETED", "REJECTED"],
+          "description": "Event category."
+        },
+        "transactionRef": {
+          "type": "string",
+          "description": "Related transaction reference."
+        },
+        "read": {
+          "type": "boolean",
+          "description": "Whether the player has read this notification."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": ["title", "message", "type", "read", "createdAt"]
+    },
+    "AppConfig": {
+      "title": "AppConfig",
+      "description": "Operational settings controlled by the agent.",
+      "type": "object",
+      "properties": {
+        "whatsappNumber": {
+          "type": "string",
+          "description": "Official agent WhatsApp hotline number."
+        },
+        "minTransaction": {
+          "type": "integer",
+          "description": "Minimum LKR amount."
+        },
+        "maxTransaction": {
+          "type": "integer",
+          "description": "Maximum LKR amount."
+        },
+        "promoCode": {
+          "type": "string",
+          "description": "Agent promo code."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": ["whatsappNumber", "minTransaction", "maxTransaction", "promoCode", "updatedAt"]
+    },
+    "AdminMarker": {
+      "title": "AdminMarker",
+      "description": "Server-provisioned admin UID marker.",
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string"
+        }
+      },
+      "required": ["role"]
+    }
+  },
+  "firestore": {
+    "/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Deposit and withdrawal requests scoped by userId or readable/updatable by verified agent admin."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Customer profile for prefilling 1xBet Player ID and name."
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/NotificationItem" },
+      "description": "Player-scoped in-app notifications written on submission and agent status updates."
+    },
+    "/app_config/{configId}": {
+      "schema": { "$ref": "#/entities/AppConfig" },
+      "description": "Shared agent operational settings."
+    },
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminMarker" },
+      "description": "Read-only admin authorization marker documents."
+    }
+  }
+}

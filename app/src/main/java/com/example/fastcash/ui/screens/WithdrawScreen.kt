@@ -1,5 +1,6 @@
 package com.example.fastcash.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,18 +11,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import com.example.fastcash.R
-import com.example.fastcash.ui.components.transactionLabels
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.fastcash.R
 import com.example.fastcash.data.model.TransactionStatus
 import com.example.fastcash.ui.components.TimelineView
+import com.example.fastcash.ui.components.WhatsAppHelper
+import com.example.fastcash.ui.components.transactionLabels
 import com.example.fastcash.ui.theme.*
 import com.example.fastcash.ui.viewmodel.FastCashViewModel
 import com.example.fastcash.ui.viewmodel.ScreenDestination
@@ -42,8 +45,11 @@ fun WithdrawScreen(
     val contactNumber by viewModel.withdrawContactNumber.collectAsState()
     val isSubmitting by viewModel.withdrawIsSubmitting.collectAsState()
     val successRef by viewModel.withdrawSuccessRef.collectAsState()
+    val whatsappMsg by viewModel.withdrawWhatsappMessage.collectAsState()
     val error by viewModel.withdrawError.collectAsState()
+    val appConfig by viewModel.appConfig.collectAsState()
 
+    val context = LocalContext.current
     var showBankMenu by remember { mutableStateOf(false) }
     val bankList = listOf(
         "Bank of Ceylon (BOC)",
@@ -53,11 +59,11 @@ fun WithdrawScreen(
         "Hatton National Bank (HNB)",
         "Seylan Bank",
         "National Savings Bank (NSB)",
-        "Nations Trust Bank (NTB)"
+        "Nations Trust Bank (NTB)",
+        "iPay Wallet"
     )
 
     if (successRef != null) {
-        // Success Modal
         Box(
             modifier = modifier
                 .fillMaxSize()
@@ -68,6 +74,7 @@ fun WithdrawScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .widthIn(max = 520.dp)
                     .border(1.dp, NeonPink, RoundedCornerShape(8.dp)),
                 colors = CardDefaults.cardColors(containerColor = DarkCard)
             ) {
@@ -119,17 +126,51 @@ fun WithdrawScreen(
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = "Funds will be routed to your bank account upon verification of your 1xBet Cash code.",
+                        text = if (language == "si") {
+                            "නියෝජිත WhatsApp වෙත විස්තර යවන්න. MobCash පරීක්ෂාවෙන් පසු ඔබට app එක හරහා දැනුම් දෙනු ලැබේ."
+                        } else {
+                            "Send your withdrawal details to agent WhatsApp (${appConfig.whatsappNumber}). You will receive an in-app alert when your bank payout is sent."
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextMuted,
                         fontSize = 12.sp
                     )
 
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                     TimelineView(status = TransactionStatus.PENDING)
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
                     Button(
+                        onClick = {
+                            WhatsAppHelper.openWhatsApp(
+                                context = context,
+                                phoneNumber = appConfig.whatsappNumber,
+                                message = whatsappMsg
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("withdraw_whatsapp_btn"),
+                        colors = ButtonDefaults.buttonColors(containerColor = StatusGreen),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Chat,
+                            contentDescription = "Send to WhatsApp",
+                            tint = DarkBackground,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (language == "si") "WHATSAPP වෙත යවන්න" else "SEND TO AGENT WHATSAPP",
+                            color = DarkBackground,
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedButton(
                         onClick = {
                             val ref = successRef
                             viewModel.resetWithdrawalSuccess()
@@ -144,12 +185,12 @@ fun WithdrawScreen(
                             .fillMaxWidth()
                             .height(48.dp)
                             .testTag("withdraw_done_btn"),
-                        colors = ButtonDefaults.buttonColors(containerColor = NeonPink),
+                        border = BorderStroke(1.dp, NeonPink),
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Text(
                             text = labels.getString(R.string.tx_track_action),
-                            color = TextPrimary,
+                            color = NeonPink,
                             style = MaterialTheme.typography.labelLarge
                         )
                     }
@@ -210,7 +251,7 @@ fun WithdrawScreen(
                         OutlinedTextField(
                             value = amount,
                             onValueChange = { viewModel.withdrawAmount.value = it },
-                            placeholder = { Text("12,500", color = TextMuted) },
+                            placeholder = { Text("12500", color = TextMuted) },
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -401,10 +442,14 @@ fun WithdrawScreen(
                                 strokeWidth = 2.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(labels.getString(R.string.tx_sending), color = TextPrimary, style = MaterialTheme.typography.labelLarge)
+                            Text(
+                                labels.getString(R.string.tx_sending),
+                                color = TextPrimary,
+                                style = MaterialTheme.typography.labelLarge
+                            )
                         } else {
                             Text(
-                                text = labels.getString(R.string.tx_withdraw_submit),
+                                text = if (language == "si") "ඉල්ලීම යවා WHATSAPP වෙත යොමු කරන්න" else "SUBMIT & SEND TO WHATSAPP",
                                 color = TextPrimary,
                                 style = MaterialTheme.typography.labelLarge
                             )

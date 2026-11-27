@@ -12,8 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import com.example.fastcash.R
-import com.example.fastcash.ui.components.transactionLabels
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,9 +21,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.fastcash.R
 import com.example.fastcash.data.model.TransactionStatus
 import com.example.fastcash.ui.components.StatusPill
 import com.example.fastcash.ui.components.TimelineView
+import com.example.fastcash.ui.components.transactionLabels
 import com.example.fastcash.ui.theme.*
 import com.example.fastcash.ui.viewmodel.FastCashViewModel
 import java.text.SimpleDateFormat
@@ -41,13 +41,19 @@ fun TrackScreen(
     val searchQuery by viewModel.trackSearchQuery.collectAsState()
     val trackedResult by viewModel.trackedResult.collectAsState()
     val isSearched by viewModel.isTrackSearched.collectAsState()
-    val allTransactions by viewModel.allTransactions.collectAsState()
+    val allTransactions by viewModel.playerFirestoreTransactions.collectAsState()
 
     val profileName by viewModel.profileName.collectAsState()
     val profilePlayerId by viewModel.profilePlayerId.collectAsState()
     val isSavingProfile by viewModel.isSavingProfile.collectAsState()
 
     val context = LocalContext.current
+
+    // Keep trackedResult in sync with live Firestore updates
+    val liveTracked = remember(trackedResult, allTransactions) {
+        val current = trackedResult ?: return@remember null
+        allTransactions.firstOrNull { it.reference == current.reference } ?: current
+    }
 
     LazyColumn(
         modifier = modifier
@@ -118,16 +124,17 @@ fun TrackScreen(
 
         item {
             val message by viewModel.trackingMessage.collectAsState()
-            message?.let { Text(it) }
+            message?.let { Text(it, color = NeonCyan, style = MaterialTheme.typography.bodyMedium) }
         }
+
         // Search Result Card
         if (isSearched) {
             item {
-                if (trackedResult != null) {
-                    val tx = trackedResult!!
-                    val dateStr = remember(tx.createdAt) {
+                if (liveTracked != null) {
+                    val tx = liveTracked
+                    val dateStr = remember(tx.timestampMillis) {
                         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-                        sdf.format(Date(tx.createdAt))
+                        sdf.format(Date(tx.timestampMillis))
                     }
 
                     Card(
@@ -157,11 +164,11 @@ fun TrackScreen(
                                         color = TextPrimary
                                     )
                                 }
-                                StatusPill(status = tx.status)
+                                StatusPill(status = tx.parsedStatus)
                             }
 
                             Spacer(modifier = Modifier.height(14.dp))
-                            Divider(color = Color(0x22FFFFFF))
+                            HorizontalDivider(color = Color(0x22FFFFFF))
                             Spacer(modifier = Modifier.height(12.dp))
 
                             Row(
@@ -170,7 +177,7 @@ fun TrackScreen(
                             ) {
                                 Column {
                                     Text("TYPE", style = MaterialTheme.typography.labelSmall, color = TextMuted)
-                                    Text(tx.type.name, style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+                                    Text(tx.type, style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
                                 }
                                 Column(horizontalAlignment = Alignment.End) {
                                     Text("AMOUNT", style = MaterialTheme.typography.labelSmall, color = TextMuted)
@@ -193,16 +200,52 @@ fun TrackScreen(
                                 }
                             }
 
-                            if (tx.bank != null) {
+                            if (!tx.agentAccountLabel.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("DEPOSITED TO", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                                Text(
+                                    "${tx.agentAccountLabel} (${tx.agentAccountNumber ?: ""})",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextPrimary
+                                )
+                            }
+
+                            if (!tx.bank.isNullOrBlank()) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text("RECIPIENT BANK", style = MaterialTheme.typography.labelSmall, color = TextMuted)
-                                Text("${tx.bank} (Acc: ${tx.accountNumber})", style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+                                Text(
+                                    "${tx.bank} (Acc: ${tx.accountNumber ?: ""})",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextPrimary
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(16.dp))
-                            TimelineView(status = tx.status)
+                            TimelineView(status = tx.parsedStatus)
 
-                            if (tx.status == TransactionStatus.REJECTED && tx.rejectionReason != null) {
+                            if (!tx.agentNote.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = StatusGreen.copy(alpha = 0.14f))
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text(
+                                            text = "AGENT CONFIRMATION NOTE",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = StatusGreen
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = tx.agentNote,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = TextPrimary
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (tx.parsedStatus == TransactionStatus.REJECTED && !tx.rejectionReason.isNullOrBlank()) {
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
@@ -216,7 +259,7 @@ fun TrackScreen(
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            text = tx.rejectionReason ?: "",
+                                            text = tx.rejectionReason,
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = TextPrimary
                                         )
@@ -240,7 +283,11 @@ fun TrackScreen(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = if (language == "si") "යොමු අංකය පරීක්ෂා කර නැවත සොයන්න." else "No request matching reference \"$searchQuery\" was found. Please check your reference code or contact support.",
+                                text = if (language == "si") {
+                                    "යොමු අංකය පරීක්ෂා කර නැවත සොයන්න."
+                                } else {
+                                    "No request matching reference \"$searchQuery\" was found. Please check your reference code or contact support."
+                                },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextMuted
                             )
@@ -316,10 +363,10 @@ fun TrackScreen(
                             viewModel.saveProfile()
                             Toast.makeText(context, "Profile saved!", Toast.LENGTH_SHORT).show()
                         },
-                        enabled = !isSavingProfile && profileName.isNotBlank() && profilePlayerId.isNotBlank(),
+                        enabled = !isSavingProfile && profileName.isNotBlank() && profilePlayerId.trim().length >= 4,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(46.dp)
+                            .height(48.dp)
                             .testTag("profile_save_btn"),
                         colors = ButtonDefaults.buttonColors(containerColor = NeonPink),
                         shape = RoundedCornerShape(4.dp)
@@ -350,9 +397,7 @@ fun TrackScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {
-                        viewModel.trackTransaction(tx.reference)
-                    }
+                    .clickable { viewModel.trackTransaction(tx.reference) }
                     .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(6.dp)),
                 colors = CardDefaults.cardColors(containerColor = DarkCard)
             ) {
@@ -374,6 +419,14 @@ fun TrackScreen(
                             color = TextMuted,
                             fontSize = 12.sp
                         )
+                        if (!tx.agentNote.isNullOrBlank()) {
+                            Text(
+                                text = tx.agentNote,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = StatusGreen,
+                                fontSize = 11.sp
+                            )
+                        }
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
@@ -382,7 +435,7 @@ fun TrackScreen(
                             color = NeonCyan
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        StatusPill(status = tx.status)
+                        StatusPill(status = tx.parsedStatus)
                     }
                 }
             }

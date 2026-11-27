@@ -1,0 +1,192 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        ('email_verified' in request.auth.token &&
+         request.auth.token.email_verified == true &&
+         'email' in request.auth.token &&
+         request.auth.token.email == 'lakmalsujith25@gmail.com') ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidTransaction(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.reference is string && data.reference.size() >= 4 && data.reference.size() <= 64 &&
+             data.type in ['DEPOSIT', 'WITHDRAWAL'] &&
+             data.status in ['PENDING', 'PROCESSING', 'COMPLETED', 'REJECTED'] &&
+             data.amount is int && data.amount >= 1000 && data.amount <= 500000 &&
+             data.playerId is string && data.playerId.size() >= 4 && data.playerId.size() <= 64 &&
+             data.paymentMethod is string && data.paymentMethod.size() >= 1 && data.paymentMethod.size() <= 64 &&
+             (!('userEmail' in data) || (data.userEmail is string && data.userEmail.size() <= 160)) &&
+             (!('userName' in data) || (data.userName is string && data.userName.size() <= 120)) &&
+             (!('agentAccountLabel' in data) || (data.agentAccountLabel is string && data.agentAccountLabel.size() <= 140)) &&
+             (!('agentAccountNumber' in data) || (data.agentAccountNumber is string && data.agentAccountNumber.size() <= 64)) &&
+             (!('receiptKey' in data) || (data.receiptKey is string && data.receiptKey.size() <= 128)) &&
+             (!('securityCode' in data) || (data.securityCode is string && data.securityCode.size() <= 128)) &&
+             (!('bank' in data) || (data.bank is string && data.bank.size() <= 100)) &&
+             (!('accountNumber' in data) || (data.accountNumber is string && data.accountNumber.size() <= 64)) &&
+             (!('contactNumber' in data) || (data.contactNumber is string && data.contactNumber.size() <= 32)) &&
+             (!('rejectionReason' in data) || (data.rejectionReason is string && data.rejectionReason.size() <= 300)) &&
+             (!('agentNote' in data) || (data.agentNote is string && data.agentNote.size() <= 300)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.playerId is string && data.playerId.size() >= 4 && data.playerId.size() <= 64 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidNotification(data) {
+      return data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.message is string && data.message.size() >= 1 && data.message.size() <= 400 &&
+             data.type in ['SUBMITTED', 'PROCESSING', 'COMPLETED', 'REJECTED'] &&
+             (!('transactionRef' in data) || (data.transactionRef is string && data.transactionRef.size() <= 64)) &&
+             data.read is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidAppConfig(data) {
+      return data.whatsappNumber is string && data.whatsappNumber.size() >= 8 && data.whatsappNumber.size() <= 24 &&
+             data.minTransaction is int && data.minTransaction >= 100 && data.minTransaction <= 500000 &&
+             data.maxTransaction is int && data.maxTransaction >= data.minTransaction && data.maxTransaction <= 10000000 &&
+             data.promoCode is string && data.promoCode.size() >= 1 && data.promoCode.size() <= 32 &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /transactions/{transactionId} {
+      allow get: if isSignedIn() && isValidId(transactionId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn() &&
+                       isValidId(transactionId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().status == 'PENDING' &&
+                       incoming().keys().hasAll([
+                         'userId', 'reference', 'type', 'status', 'amount',
+                         'playerId', 'paymentMethod', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'userEmail', 'userName', 'reference', 'type', 'status',
+                         'amount', 'playerId', 'paymentMethod', 'agentAccountLabel',
+                         'agentAccountNumber', 'receiptKey', 'securityCode', 'bank',
+                         'accountNumber', 'contactNumber', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidTransaction(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(transactionId) &&
+                       isValidTransaction(incoming()) &&
+                       isAdmin() &&
+                       incoming().userId == existing().userId &&
+                       incoming().reference == existing().reference &&
+                       incoming().type == existing().type &&
+                       incoming().amount == existing().amount &&
+                       incoming().playerId == existing().playerId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'status', 'rejectionReason', 'agentNote', 'updatedAt'
+                       ]);
+
+      allow delete: if false;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if isSignedIn() && request.auth.uid == userId;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'name', 'playerId', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'name', 'playerId', 'createdAt', 'updatedAt']) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'playerId', 'updatedAt']);
+
+      allow delete: if false;
+
+      match /notifications/{notificationId} {
+        allow get: if isSignedIn() && isValidId(notificationId) && (request.auth.uid == userId || isAdmin());
+        allow list: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+
+        allow create: if isSignedIn() &&
+                         isValidId(notificationId) &&
+                         (
+                           isAdmin() ||
+                           (request.auth.uid == userId && incoming().type == 'SUBMITTED' && incoming().read == false)
+                         ) &&
+                         incoming().keys().hasAll(['title', 'message', 'type', 'read', 'createdAt']) &&
+                         incoming().keys().hasOnly(['title', 'message', 'type', 'transactionRef', 'read', 'createdAt']) &&
+                         isValidNotification(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidId(notificationId) &&
+                         request.auth.uid == userId &&
+                         isValidNotification(incoming()) &&
+                         incoming().title == existing().title &&
+                         incoming().message == existing().message &&
+                         incoming().type == existing().type &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+
+        allow delete: if false;
+      }
+    }
+
+    match /app_config/{configId} {
+      allow get: if isSignedIn() && configId == 'settings';
+      allow list: if false;
+      allow create, update: if isSignedIn() &&
+                               configId == 'settings' &&
+                               isAdmin() &&
+                               incoming().keys().hasAll([
+                                 'whatsappNumber', 'minTransaction', 'maxTransaction', 'promoCode', 'updatedAt'
+                               ]) &&
+                               incoming().keys().hasOnly([
+                                 'whatsappNumber', 'minTransaction', 'maxTransaction', 'promoCode', 'updatedAt'
+                               ]) &&
+                               isValidAppConfig(incoming());
+      allow delete: if false;
+    }
+
+    match /admins/{adminUid} {
+      allow get: if isSignedIn() && isValidId(adminUid) && request.auth.uid == adminUid;
+      allow list, create, update, delete: if false;
+    }
+  }
+}

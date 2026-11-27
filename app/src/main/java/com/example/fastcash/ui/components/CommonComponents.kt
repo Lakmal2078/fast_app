@@ -140,7 +140,9 @@ fun FastCashTopBar(
     onLanguageChange: (String) -> Unit,
     unreadNotificationsCount: Int,
     onOpenNotifications: () -> Unit,
+    isAdmin: Boolean,
     isAdminMode: Boolean,
+    onToggleAdmin: () -> Unit,
     onSignOut: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -208,7 +210,7 @@ fun FastCashTopBar(
                             .clip(RoundedCornerShape(2.dp))
                             .background(if (isSelected) NeonCyan else Color.Transparent)
                             .clickable { onLanguageChange(lang.lowercase()) }
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .padding(horizontal = 6.dp, vertical = 4.dp)
                             .testTag("lang_btn_$lang"),
                         contentAlignment = Alignment.Center
                     ) {
@@ -222,7 +224,7 @@ fun FastCashTopBar(
                 }
             }
 
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(4.dp))
 
             // Notifications button with badge
             IconButton(
@@ -249,15 +251,27 @@ fun FastCashTopBar(
                 }
             }
 
-            // Admin Toggle Button
+            if (isAdmin) {
+                IconButton(
+                    onClick = onToggleAdmin,
+                    modifier = Modifier.testTag("admin_toggle_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AdminPanelSettings,
+                        contentDescription = "Agent Desk",
+                        tint = if (isAdminMode) NeonPink else TextSecondary
+                    )
+                }
+            }
+
             IconButton(
                 onClick = onSignOut,
-                modifier = Modifier.testTag("admin_toggle_btn")
+                modifier = Modifier.testTag("sign_out_btn")
             ) {
                 Icon(
                     imageVector = Icons.Default.ExitToApp,
-                    contentDescription = "වරන්න / Sign out",
-                    tint = if (isAdminMode) NeonPink else TextMuted
+                    contentDescription = "Sign out",
+                    tint = TextMuted
                 )
             }
         }

@@ -1,6 +1,7 @@
 package com.example.fastcash.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,13 +19,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.fastcash.data.model.StatementProvider
-import com.example.fastcash.data.model.TransactionEntity
+import com.example.fastcash.data.model.FirestoreTransaction
 import com.example.fastcash.data.model.TransactionStatus
-import com.example.fastcash.data.model.VerificationStatus
 import com.example.fastcash.ui.components.StatusPill
 import com.example.fastcash.ui.theme.*
 import com.example.fastcash.ui.viewmodel.FastCashViewModel
@@ -35,29 +33,28 @@ fun AdminScreen(
     viewModel: FastCashViewModel,
     modifier: Modifier = Modifier
 ) {
-    val allTransactions by viewModel.allTransactions.collectAsState()
+    val allTransactions by viewModel.adminFirestoreTransactions.collectAsState()
     val searchQuery by viewModel.adminSearchQuery.collectAsState()
     val statusFilter by viewModel.adminStatusFilter.collectAsState()
     val selectedTx by viewModel.selectedAdminTx.collectAsState()
+    val agentNote by viewModel.adminAgentNote.collectAsState()
     val rejectionReason by viewModel.adminRejectionReason.collectAsState()
-
-    val reconRows by viewModel.allReconRows.collectAsState()
-    val reconSummary by viewModel.reconSummary.collectAsState()
+    val adminActionError by viewModel.adminActionError.collectAsState()
+    val isUpdating by viewModel.isUpdatingAdminTx.collectAsState()
 
     val whatsapp by viewModel.adminWhatsapp.collectAsState()
     val minAmt by viewModel.adminMinAmount.collectAsState()
     val maxAmt by viewModel.adminMaxAmount.collectAsState()
     val promo by viewModel.adminPromoCode.collectAsState()
 
-    var selectedProvider by remember { mutableStateOf(StatementProvider.BOC) }
-    var activeTab by remember { mutableIntStateOf(0) } // 0: Queue, 1: Recon, 2: Settings
+    var activeTab by remember { mutableIntStateOf(0) } // 0: Queue, 1: Settings
     val context = LocalContext.current
 
     val filteredTransactions = allTransactions.filter { tx ->
         val matchesQuery = searchQuery.isBlank() ||
-                tx.reference.contains(searchQuery, ignoreCase = true) ||
-                tx.playerId.contains(searchQuery, ignoreCase = true)
-        val matchesStatus = statusFilter == "ALL" || tx.status.name == statusFilter
+            tx.reference.contains(searchQuery, ignoreCase = true) ||
+            tx.playerId.contains(searchQuery, ignoreCase = true)
+        val matchesStatus = statusFilter == "ALL" || tx.status == statusFilter
         matchesQuery && matchesStatus
     }
 
@@ -79,13 +76,13 @@ fun AdminScreen(
                 ) {
                     Column {
                         Text(
-                            text = "OPS // ADMIN DESK",
+                            text = "OPS // AGENT CONTROL ROOM",
                             style = MaterialTheme.typography.labelSmall,
                             color = NeonPink
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "Control room",
+                            text = "MobCash & Payout Desk",
                             style = MaterialTheme.typography.headlineMedium
                         )
                     }
@@ -96,7 +93,7 @@ fun AdminScreen(
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = "● LIVE QUEUE",
+                            text = "● LIVE SYNC",
                             style = MaterialTheme.typography.labelSmall,
                             color = StatusGreen
                         )
@@ -104,7 +101,6 @@ fun AdminScreen(
                 }
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Navigation Tabs
                 TabRow(
                     selectedTabIndex = activeTab,
                     containerColor = DarkCard,
@@ -113,17 +109,19 @@ fun AdminScreen(
                     Tab(
                         selected = activeTab == 0,
                         onClick = { activeTab = 0 },
-                        text = { Text("REQUESTS (${filteredTransactions.size})", style = MaterialTheme.typography.labelSmall) }
+                        text = {
+                            Text(
+                                "REQUESTS (${filteredTransactions.size})",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
                     )
                     Tab(
                         selected = activeTab == 1,
                         onClick = { activeTab = 1 },
-                        text = { Text("RECON", style = MaterialTheme.typography.labelSmall) }
-                    )
-                    Tab(
-                        selected = activeTab == 2,
-                        onClick = { activeTab = 2 },
-                        text = { Text("SETTINGS", style = MaterialTheme.typography.labelSmall) }
+                        text = {
+                            Text("SETTINGS", style = MaterialTheme.typography.labelSmall)
+                        }
                     )
                 }
             }
@@ -131,10 +129,8 @@ fun AdminScreen(
 
         when (activeTab) {
             0 -> {
-                // Request Queue Tab
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        // Search bar
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { viewModel.adminSearchQuery.value = it },
@@ -154,7 +150,6 @@ fun AdminScreen(
                             )
                         )
 
-                        // Status filter chips
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -165,9 +160,13 @@ fun AdminScreen(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(4.dp))
                                         .background(if (isSelected) NeonCyan else DarkSurface)
-                                        .border(0.8.dp, if (isSelected) NeonCyan else Color(0x33FFFFFF), RoundedCornerShape(4.dp))
+                                        .border(
+                                            0.8.dp,
+                                            if (isSelected) NeonCyan else Color(0x33FFFFFF),
+                                            RoundedCornerShape(4.dp)
+                                        )
                                         .clickable { viewModel.adminStatusFilter.value = st }
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        .padding(horizontal = 8.dp, vertical = 6.dp)
                                         .testTag("admin_filter_$st")
                                 ) {
                                     Text(
@@ -182,178 +181,31 @@ fun AdminScreen(
                     }
                 }
 
-                items(filteredTransactions) { tx ->
-                    AdminRequestCard(
-                        transaction = tx,
-                        onReview = {
-                            viewModel.selectedAdminTx.value = tx
-                            viewModel.adminRejectionReason.value = tx.rejectionReason ?: ""
+                if (filteredTransactions.isEmpty()) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = DarkCard)
+                        ) {
+                            Text(
+                                text = "No matching customer requests in this queue.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextMuted,
+                                modifier = Modifier.padding(16.dp)
+                            )
                         }
-                    )
+                    }
+                } else {
+                    items(filteredTransactions) { tx ->
+                        AdminRequestCard(
+                            transaction = tx,
+                            onReview = { viewModel.openAdminReview(tx) }
+                        )
+                    }
                 }
             }
 
             1 -> {
-                // Bank Reconciliation Tab
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, NeonCyan.copy(alpha = 0.4f), RoundedCornerShape(6.dp)),
-                        colors = CardDefaults.cardColors(containerColor = DarkCard)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "RECON // STATEMENT IMPORT",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = NeonCyan
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Match bank activity",
-                                style = MaterialTheme.typography.titleLarge
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "Select provider and import statement records to auto-verify customer deposits against pending references.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextMuted
-                            )
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                StatementProvider.values().forEach { provider ->
-                                    val isSelected = selectedProvider == provider
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(if (isSelected) NeonCyan else DarkSurface)
-                                            .border(0.8.dp, if (isSelected) NeonCyan else Color(0x33FFFFFF), RoundedCornerShape(4.dp))
-                                            .clickable { selectedProvider = provider }
-                                            .padding(horizontal = 8.dp, vertical = 6.dp)
-                                    ) {
-                                        Text(
-                                            text = provider.name.replace("_", " "),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = if (isSelected) DarkBackground else TextSecondary,
-                                            fontSize = 9.sp
-                                        )
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Button(
-                                onClick = {
-                                    viewModel.simulateBankReconciliation(selectedProvider)
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(46.dp)
-                                    .testTag("admin_recon_import_btn"),
-                                colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
-                                shape = RoundedCornerShape(4.dp)
-                            ) {
-                                Icon(Icons.Default.CloudUpload, contentDescription = null, tint = DarkBackground)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("IMPORT & VERIFY ${selectedProvider.name}", color = DarkBackground, style = MaterialTheme.typography.labelLarge)
-                            }
-
-                            if (reconSummary != null) {
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text(
-                                    text = reconSummary ?: "",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = StatusGreen
-                                )
-                            }
-                        }
-                    }
-                }
-
-                item {
-                    Text(
-                        text = "RECONCILIATION QUEUE",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = NeonCyan
-                    )
-                }
-
-                items(reconRows) { row ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(6.dp)),
-                        colors = CardDefaults.cardColors(containerColor = DarkCard)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "#${row.externalId}",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = TextPrimary
-                                )
-                                Text(
-                                    text = row.description ?: "Bank transaction",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextMuted,
-                                    fontSize = 11.sp
-                                )
-                                Text(
-                                    text = "LKR %,d · ${row.direction}".format(row.amount),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = NeonCyan
-                                )
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(
-                                            if (row.verificationStatus == VerificationStatus.VERIFIED)
-                                                StatusGreen.copy(alpha = 0.2f) else DarkSurface
-                                        )
-                                        .border(
-                                            0.8.dp,
-                                            if (row.verificationStatus == VerificationStatus.VERIFIED)
-                                                StatusGreen else Color(0x33FFFFFF),
-                                            RoundedCornerShape(4.dp)
-                                        )
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = row.verificationStatus.name,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (row.verificationStatus == VerificationStatus.VERIFIED)
-                                            StatusGreen else TextSecondary,
-                                        fontSize = 9.sp
-                                    )
-                                }
-                                if (row.verificationStatus != VerificationStatus.VERIFIED) {
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    TextButton(
-                                        onClick = {
-                                            viewModel.resolveReconRow(row, VerificationStatus.EXCEPTION)
-                                        }
-                                    ) {
-                                        Text("Ignore", color = TextMuted, style = MaterialTheme.typography.labelSmall)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            2 -> {
-                // Settings Tab
                 item {
                     Card(
                         modifier = Modifier
@@ -371,7 +223,7 @@ fun AdminScreen(
                                 color = NeonPink
                             )
                             Text(
-                                text = "Network settings",
+                                text = "Agent WhatsApp & Limits",
                                 style = MaterialTheme.typography.titleLarge
                             )
 
@@ -426,7 +278,7 @@ fun AdminScreen(
                             Button(
                                 onClick = {
                                     viewModel.saveAdminSettings()
-                                    Toast.makeText(context, "Settings saved!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Settings updated!", Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -444,20 +296,71 @@ fun AdminScreen(
         }
     }
 
-    // Review Modal / Card
+    // Decision & Player Notification Dialog
     if (selectedTx != null) {
         val tx = selectedTx!!
         AlertDialog(
-            onDismissRequest = { viewModel.selectedAdminTx.value = null },
+            onDismissRequest = { if (!isUpdating) viewModel.selectedAdminTx.value = null },
             title = {
-                Text("DECISION NOTE // ${tx.reference}", style = MaterialTheme.typography.titleMedium, color = NeonCyan)
+                Text(
+                    "NOTIFY PLAYER // ${tx.reference}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = NeonCyan
+                )
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "${tx.type} · LKR %,d · Player: ${tx.playerId}".format(tx.amount),
+                        text = "${tx.type} · LKR %,d · Player ID: ${tx.playerId}".format(tx.amount),
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextPrimary
+                    )
+                    if (!tx.agentAccountLabel.isNullOrBlank()) {
+                        Text(
+                            text = "Deposited To: ${tx.agentAccountLabel} (${tx.agentAccountNumber ?: ""})",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = NeonCyan,
+                            fontSize = 12.sp
+                        )
+                    }
+                    if (!tx.receiptKey.isNullOrBlank()) {
+                        Text(
+                            text = "Receipt Ref: ${tx.receiptKey}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
+                    if (!tx.securityCode.isNullOrBlank()) {
+                        Text(
+                            text = "1xBet Code: ${tx.securityCode}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = NeonPink,
+                            fontSize = 12.sp
+                        )
+                    }
+                    if (!tx.bank.isNullOrBlank()) {
+                        Text(
+                            text = "Payout Bank: ${tx.bank} · Acc: ${tx.accountNumber ?: ""}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = agentNote,
+                        onValueChange = { viewModel.adminAgentNote.value = it },
+                        label = { Text("Confirmation message sent to player") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("admin_agent_note_input"),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = NeonCyan,
+                            unfocusedBorderColor = Color(0x33FFFFFF),
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        )
                     )
 
                     OutlinedTextField(
@@ -466,49 +369,77 @@ fun AdminScreen(
                         placeholder = { Text("Rejection reason (Required if rejecting)", color = TextMuted) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(100.dp)
                             .testTag("admin_rejection_reason_input"),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = NeonPink,
-                            unfocusedBorderColor = Color(0x33FFFFFF)
+                            unfocusedBorderColor = Color(0x33FFFFFF),
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
                         )
                     )
 
+                    if (adminActionError != null) {
+                        Text(
+                            text = adminActionError ?: "",
+                            color = StatusRed,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontSize = 12.sp
+                        )
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Button(
                             onClick = {
-                                viewModel.updateTransactionStatus(tx.id, TransactionStatus.PROCESSING)
+                                viewModel.updateTransactionStatus(
+                                    tx = tx,
+                                    status = TransactionStatus.PROCESSING,
+                                    agentNote = agentNote
+                                )
                             },
-                            modifier = Modifier.weight(1f),
+                            enabled = !isUpdating,
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
-                            shape = RoundedCornerShape(4.dp)
+                            shape = RoundedCornerShape(4.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
                         ) {
                             Text("PROCESS", color = DarkBackground, fontSize = 10.sp)
                         }
                         Button(
                             onClick = {
-                                viewModel.updateTransactionStatus(tx.id, TransactionStatus.COMPLETED)
+                                viewModel.updateTransactionStatus(
+                                    tx = tx,
+                                    status = TransactionStatus.COMPLETED,
+                                    agentNote = agentNote
+                                )
                             },
-                            modifier = Modifier.weight(1f),
+                            enabled = !isUpdating,
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = StatusGreen),
-                            shape = RoundedCornerShape(4.dp)
+                            shape = RoundedCornerShape(4.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
                         ) {
                             Text("COMPLETE", color = DarkBackground, fontSize = 10.sp)
                         }
                         Button(
                             onClick = {
                                 if (rejectionReason.isNotBlank()) {
-                                    viewModel.updateTransactionStatus(tx.id, TransactionStatus.REJECTED, rejectionReason)
+                                    viewModel.updateTransactionStatus(
+                                        tx = tx,
+                                        status = TransactionStatus.REJECTED,
+                                        rejectionReason = rejectionReason
+                                    )
                                 } else {
                                     Toast.makeText(context, "Rejection reason required!", Toast.LENGTH_SHORT).show()
                                 }
                             },
-                            modifier = Modifier.weight(1f),
+                            enabled = !isUpdating,
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = StatusRed),
-                            shape = RoundedCornerShape(4.dp)
+                            shape = RoundedCornerShape(4.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
                         ) {
                             Text("REJECT", color = TextPrimary, fontSize = 10.sp)
                         }
@@ -517,7 +448,10 @@ fun AdminScreen(
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = { viewModel.selectedAdminTx.value = null }) {
+                TextButton(
+                    onClick = { viewModel.selectedAdminTx.value = null },
+                    enabled = !isUpdating
+                ) {
                     Text("CLOSE", color = TextMuted)
                 }
             },
@@ -528,7 +462,7 @@ fun AdminScreen(
 
 @Composable
 fun AdminRequestCard(
-    transaction: TransactionEntity,
+    transaction: FirestoreTransaction,
     onReview: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -555,6 +489,21 @@ fun AdminRequestCard(
                     color = TextMuted,
                     fontSize = 11.sp
                 )
+                if (!transaction.agentAccountLabel.isNullOrBlank()) {
+                    Text(
+                        text = transaction.agentAccountLabel,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+                } else if (!transaction.bank.isNullOrBlank()) {
+                    Text(
+                        text = "${transaction.bank} · ${transaction.accountNumber ?: ""}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+                }
                 Text(
                     text = "LKR %,d".format(transaction.amount),
                     style = MaterialTheme.typography.labelSmall,
@@ -562,18 +511,23 @@ fun AdminRequestCard(
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
-                StatusPill(status = transaction.status)
+                StatusPill(status = transaction.parsedStatus)
                 Spacer(modifier = Modifier.height(6.dp))
                 Button(
                     onClick = onReview,
                     colors = ButtonDefaults.buttonColors(containerColor = DarkSurface),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, NeonCyan.copy(alpha = 0.5f)),
+                    border = BorderStroke(1.dp, NeonCyan.copy(alpha = 0.5f)),
                     shape = RoundedCornerShape(4.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                    modifier = Modifier.height(30.dp)
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    modifier = Modifier.heightIn(min = 48.dp)
                 ) {
-                    Text("Review", color = NeonCyan, fontSize = 10.sp)
-                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(14.dp))
+                    Text("Notify / Review", color = NeonCyan, fontSize = 10.sp)
+                    Icon(
+                        Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = NeonCyan,
+                        modifier = Modifier.size(14.dp)
+                    )
                 }
             }
         }

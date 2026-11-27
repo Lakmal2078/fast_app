@@ -27,9 +27,9 @@ fun SupportScreen(
     modifier: Modifier = Modifier
 ) {
     val content by viewModel.content.collectAsState()
-    val appSettings by viewModel.appSettings.collectAsState()
+    val appConfig by viewModel.appConfig.collectAsState()
     val context = LocalContext.current
-    val whatsappNumber = appSettings?.whatsappNumber ?: "+94765865387"
+    val whatsappNumber = appConfig.whatsappNumber
 
     LazyColumn(
         modifier = modifier
