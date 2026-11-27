@@ -15,11 +15,22 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): TransactionEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert
     suspend fun insert(transaction: TransactionEntity): Long
 
     @Update
     suspend fun update(transaction: TransactionEntity)
+
+    @androidx.room.Transaction
+    suspend fun cacheByReference(transaction: TransactionEntity): TransactionEntity {
+        val existing = getByReference(transaction.reference)
+        if (existing == null) {
+            return transaction.copy(id = insert(transaction.copy(id = 0)))
+        }
+        val updated = transaction.copy(id = existing.id)
+        update(updated)
+        return updated
+    }
 
     @Query("UPDATE transactions SET status = :status, rejectionReason = :reason WHERE id = :id")
     suspend fun updateStatus(id: Long, status: TransactionStatus, reason: String? = null)
@@ -59,6 +70,15 @@ interface SettingsDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAgentAccount(account: AgentAccountEntity)
+
+    @Query("DELETE FROM agent_accounts")
+    suspend fun clearAccounts()
+
+    @androidx.room.Transaction
+    suspend fun replaceAccounts(accounts: List<AgentAccountEntity>) {
+        clearAccounts()
+        accounts.forEach { insertAgentAccount(it) }
+    }
 
     @Query("SELECT * FROM recon_rows ORDER BY createdAt DESC")
     fun getAllReconRows(): Flow<List<ReconRowEntity>>

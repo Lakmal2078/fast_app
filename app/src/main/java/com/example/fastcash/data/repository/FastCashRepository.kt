@@ -8,10 +8,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import android.content.SharedPreferences
+import com.google.gson.Gson
+import java.io.IOException
+import java.security.MessageDigest
+import retrofit2.Response
 
 class FastCashRepository(
     private val db: AppDatabase,
-    private val api: FastCashApiService = NetworkClient.apiService
+    private val api: FastCashApiService,
+    private val pending: SharedPreferences
 ) {
     private val transactionDao = db.transactionDao()
     private val notificationDao = db.notificationDao()
@@ -24,330 +30,66 @@ class FastCashRepository(
     val activeAgentAccounts: Flow<List<AgentAccountEntity>> = settingsDao.getActiveAgentAccounts()
     val allReconRows: Flow<List<ReconRowEntity>> = settingsDao.getAllReconRows()
 
-    suspend fun seedInitialDataIfEmpty() {
-        val existing = allTransactions.firstOrNull()
-        if (existing.isNullOrEmpty()) {
-            // Seed initial demo transactions
-            transactionDao.insert(
-                TransactionEntity(
-                    reference = "TXN-7F42A",
-                    type = TransactionType.DEPOSIT,
-                    status = TransactionStatus.PROCESSING,
-                    amount = 25000L,
-                    playerId = "184920412",
-                    paymentMethod = "Bank transfer",
-                    bank = "Bank of Ceylon (BOC)",
-                    accountNumber = "8823104921",
-                    timestamp = System.currentTimeMillis() - 3600000L
-                )
-            )
-            transactionDao.insert(
-                TransactionEntity(
-                    reference = "TXN-19AC2",
-                    type = TransactionType.WITHDRAWAL,
-                    status = TransactionStatus.COMPLETED,
-                    amount = 12500L,
-                    playerId = "184920412",
-                    paymentMethod = "Bank payout",
-                    securityCode = "8914-XK",
-                    bank = "Commercial Bank",
-                    accountNumber = "1094002914",
-                    timestamp = System.currentTimeMillis() - 86400000L
-                )
-            )
+    private fun <T> Response<T>.confirmed(): T =
+        if (isSuccessful && body() != null) body()!!
+        else throw IOException("ඉල්ලීම තහවුරු කර නැත (HTTP ${code()}).")
 
-            // Seed notifications
-            notificationDao.insert(
-                NotificationEntity(
-                    title = "System Ready",
-                    message = "Fast Cash official agent bridge is active. Agents online.",
-                    isRead = false
-                )
-            )
-            notificationDao.insert(
-                NotificationEntity(
-                    title = "Request Processing",
-                    message = "TXN-7F42A is currently under agent verification.",
-                    isRead = false
-                )
-            )
+    private suspend fun cache(dto: TransactionDto): TransactionEntity =
+        transactionDao.cacheByReference(TransactionEntity(
+            reference = dto.reference, type = TransactionType.valueOf(dto.type),
+            status = TransactionStatus.valueOf(dto.status), amount = dto.amount,
+            playerId = dto.playerId, paymentMethod = dto.paymentMethod,
+            rejectionReason = dto.rejectionReason, timestamp = dto.timestamp
+        ))
 
-            // Seed agent accounts
-            settingsDao.insertAgentAccount(
-                AgentAccountEntity(
-                    label = "Bank of Ceylon (BOC) - Fast Cash LK",
-                    accountNumber = "8340192841",
-                    method = "Bank transfer",
-                    isActive = true
-                )
-            )
-            settingsDao.insertAgentAccount(
-                AgentAccountEntity(
-                    label = "People's Bank - Walasmulla Operations",
-                    accountNumber = "2049102941",
-                    method = "Bank transfer",
-                    isActive = true
-                )
-            )
-            settingsDao.insertAgentAccount(
-                AgentAccountEntity(
-                    label = "Sampath Bank - Fast Cash Corporate",
-                    accountNumber = "1004819204",
-                    method = "iPay / Bank",
-                    isActive = true
-                )
-            )
-
-            // Seed settings
-            settingsDao.saveAppSettings(AppSettingsEntity())
-
-            // Seed profile
-            settingsDao.saveUserProfile(UserProfileEntity(name = "Sujith Lakmal", playerId = "184920412"))
-
-            // Seed recon rows
-            settingsDao.insertReconRow(
-                ReconRowEntity(
-                    externalId = "BOC-99201",
-                    provider = StatementProvider.BOC,
-                    direction = "CREDIT",
-                    amount = 25000L,
-                    reference = "TXN-7F42A",
-                    description = "BOC FT TXN-7F42A FastCash Deposit",
-                    verificationStatus = VerificationStatus.VERIFIED
-                )
-            )
-            settingsDao.insertReconRow(
-                ReconRowEntity(
-                    externalId = "PB-41092",
-                    provider = StatementProvider.PEOPLES_BANK,
-                    direction = "CREDIT",
-                    amount = 50000L,
-                    reference = "Unknown Transfer",
-                    description = "Counter deposit cash CDM",
-                    verificationStatus = VerificationStatus.UNMATCHED
-                )
-            )
-        }
-
-        // Attempt initial sync from Cloudflare backend
-        syncFromRemote()
-    }
-
-    /**
-     * Syncs remote Cloudflare Worker state into local Room DB (Offline-First cache)
-     */
-    suspend fun syncFromRemote() = withContext(Dispatchers.IO) {
-        runCatching {
-            val response = api.getTransactions()
-            if (response.isSuccessful) {
-                response.body()?.forEach { dto ->
-                    val entity = TransactionEntity(
-                        id = dto.id,
-                        reference = dto.reference,
-                        type = runCatching { TransactionType.valueOf(dto.type) }.getOrDefault(TransactionType.DEPOSIT),
-                        status = runCatching { TransactionStatus.valueOf(dto.status) }.getOrDefault(TransactionStatus.PENDING),
-                        amount = dto.amount,
-                        playerId = dto.playerId,
-                        paymentMethod = dto.paymentMethod,
-                        securityCode = dto.securityCode,
-                        bank = dto.bank,
-                        accountNumber = dto.accountNumber,
-                        contactNumber = dto.contactNumber,
-                        receiptKey = dto.receiptKey,
-                        rejectionReason = dto.rejectionReason,
-                        timestamp = dto.timestamp
-                    )
-                    transactionDao.insert(entity)
-                }
-            }
-
-            // Sync Agent Accounts
-            val agentResponse = api.getAgentAccounts()
-            if (agentResponse.isSuccessful) {
-                agentResponse.body()?.forEach { dto ->
-                    settingsDao.insertAgentAccount(
-                        AgentAccountEntity(
-                            id = dto.id,
-                            label = dto.label,
-                            accountNumber = dto.accountNumber,
-                            method = dto.method,
-                            isActive = dto.isActive == 1
-                        )
-                    )
-                }
-            }
-
-            // Sync Notifications
-            val notifResponse = api.getNotifications()
-            if (notifResponse.isSuccessful) {
-                notifResponse.body()?.forEach { dto ->
-                    notificationDao.insert(
-                        NotificationEntity(
-                            id = dto.id,
-                            title = dto.title,
-                            message = dto.message,
-                            isRead = dto.isRead == 1,
-                            createdAt = dto.createdAt
-                        )
-                    )
-                }
-            }
+    suspend fun syncFromRemote() {
+        api.getTransactions().confirmed().forEach { cache(it) }
+        api.getAgentAccounts().confirmed().let { accounts ->
+            settingsDao.replaceAccounts(accounts.map { AgentAccountEntity(
+                id = it.id, label = it.label, accountNumber = it.accountNumber,
+                method = it.method, isActive = it.isActive == 1
+            ) })
         }
     }
 
-    private fun generateReference(): String {
-        val randomSuffix = UUID.randomUUID().toString().replace("-", "").take(6).uppercase()
-        return "TXN-$randomSuffix"
+    private suspend fun submit(kind: String, request: Any,
+        send: suspend (String) -> Response<TransactionDto>): String = withContext(Dispatchers.IO) {
+        val fingerprint = MessageDigest.getInstance("SHA-256")
+            .digest(Gson().toJson(request).toByteArray()).joinToString("") { "%02x".format(it) }
+        val slot = "$kind-$fingerprint"
+        val key = pending.getString(slot, null) ?: UUID.randomUUID().toString().also {
+            check(pending.edit().putString(slot, it).commit())
+        }
+        val saved = send(key).confirmed()
+        check(saved.reference.isNotBlank() && saved.id > 0 && saved.type == kind)
+        cache(saved)
+        check(pending.edit().putString("ack-${saved.reference}", slot).commit())
+        saved.reference
     }
 
-    suspend fun createDeposit(
-        amount: Long,
-        playerId: String,
-        paymentMethod: String,
-        receiptKey: String?
-    ): String = withContext(Dispatchers.IO) {
-        var reference = generateReference()
-        val timestamp = System.currentTimeMillis()
-
-        // Attempt Cloudflare API write
-        val remoteCall = runCatching {
-            api.createDeposit(
-                DepositRequest(
-                    amount = amount,
-                    playerId = playerId,
-                    paymentMethod = paymentMethod,
-                    receiptKey = receiptKey
-                )
-            )
-        }
-
-        if (remoteCall.isSuccess && remoteCall.getOrNull()?.isSuccessful == true) {
-            val res = remoteCall.getOrNull()!!.body()
-            if (res != null) {
-                reference = res.reference
-            }
-        }
-
-        val transaction = TransactionEntity(
-            reference = reference,
-            type = TransactionType.DEPOSIT,
-            status = TransactionStatus.PENDING,
-            amount = amount,
-            playerId = playerId,
-            paymentMethod = paymentMethod,
-            receiptKey = receiptKey,
-            timestamp = timestamp
-        )
-        transactionDao.insert(transaction)
-        notificationDao.insert(
-            NotificationEntity(
-                title = "Deposit Received",
-                message = "Request $reference for LKR $amount submitted and under review."
-            )
-        )
-        reference
+    fun acknowledge(reference: String) {
+        val slot = pending.getString("ack-$reference", null) ?: return
+        pending.edit().remove(slot).remove("ack-$reference").apply()
     }
 
-    suspend fun createWithdrawal(
-        amount: Long,
-        playerId: String,
-        securityCode: String,
-        bank: String,
-        accountNumber: String,
-        contactNumber: String
-    ): String = withContext(Dispatchers.IO) {
-        var reference = generateReference()
-        val timestamp = System.currentTimeMillis()
-
-        // Attempt Cloudflare API write
-        val remoteCall = runCatching {
-            api.createWithdrawal(
-                WithdrawalRequest(
-                    amount = amount,
-                    playerId = playerId,
-                    securityCode = securityCode,
-                    bank = bank,
-                    accountNumber = accountNumber,
-                    contactNumber = contactNumber
-                )
-            )
-        }
-
-        if (remoteCall.isSuccess && remoteCall.getOrNull()?.isSuccessful == true) {
-            val res = remoteCall.getOrNull()!!.body()
-            if (res != null) {
-                reference = res.reference
-            }
-        }
-
-        val transaction = TransactionEntity(
-            reference = reference,
-            type = TransactionType.WITHDRAWAL,
-            status = TransactionStatus.PENDING,
-            amount = amount,
-            playerId = playerId,
-            paymentMethod = "Bank payout",
-            securityCode = securityCode,
-            bank = bank,
-            accountNumber = accountNumber,
-            contactNumber = contactNumber,
-            timestamp = timestamp
-        )
-        transactionDao.insert(transaction)
-        notificationDao.insert(
-            NotificationEntity(
-                title = "Withdrawal Received",
-                message = "Request $reference for LKR $amount submitted and queued for payout."
-            )
-        )
-        reference
+    suspend fun createDeposit(amount: Long, playerId: String, paymentMethod: String, receiptKey: String?): String {
+        val request = DepositRequest(amount, playerId, paymentMethod, receiptKey)
+        return submit("DEPOSIT", request) { api.createDeposit(it, request) }
     }
 
-    suspend fun findTransactionByReference(ref: String): TransactionEntity? = withContext(Dispatchers.IO) {
-        val trimmed = ref.trim()
+    suspend fun createWithdrawal(amount: Long, playerId: String, securityCode: String, bank: String,
+        accountNumber: String, contactNumber: String): String {
+        val request = WithdrawalRequest(amount, playerId, securityCode, bank, accountNumber, contactNumber)
+        return submit("WITHDRAWAL", request) { api.createWithdrawal(it, request) }
+    }
 
-        // Check remote Cloudflare API first
-        runCatching {
-            val response = api.getTransactionByReference(trimmed)
-            if (response.isSuccessful && response.body() != null) {
-                val dto = response.body()!!
-                val entity = TransactionEntity(
-                    id = dto.id,
-                    reference = dto.reference,
-                    type = runCatching { TransactionType.valueOf(dto.type) }.getOrDefault(TransactionType.DEPOSIT),
-                    status = runCatching { TransactionStatus.valueOf(dto.status) }.getOrDefault(TransactionStatus.PENDING),
-                    amount = dto.amount,
-                    playerId = dto.playerId,
-                    paymentMethod = dto.paymentMethod,
-                    securityCode = dto.securityCode,
-                    bank = dto.bank,
-                    accountNumber = dto.accountNumber,
-                    contactNumber = dto.contactNumber,
-                    receiptKey = dto.receiptKey,
-                    rejectionReason = dto.rejectionReason,
-                    timestamp = dto.timestamp
-                )
-                transactionDao.insert(entity)
-                return@withContext entity
-            }
-        }
-
-        // Fallback to local Room Database cache
-        transactionDao.getByReference(trimmed)
+    suspend fun findTransactionByReference(ref: String): TransactionEntity? {
+        val response = api.getTransactionByReference(ref.trim().uppercase())
+        return if (response.code() == 404) null else cache(response.confirmed())
     }
 
     suspend fun updateTransactionStatus(id: Long, status: TransactionStatus, reason: String? = null) = withContext(Dispatchers.IO) {
-        // Update on Cloudflare API
-        runCatching {
-            api.updateTransactionStatus(
-                id = id,
-                request = AdminUpdateStatusRequest(
-                    status = status.name,
-                    reason = reason
-                )
-            )
-        }
-
+        api.updateTransactionStatus(id, AdminUpdateStatusRequest(status.name, reason)).confirmed()
         val tx = transactionDao.getById(id)
         transactionDao.updateStatus(id, status, reason)
         if (tx != null) {
@@ -371,7 +113,6 @@ class FastCashRepository(
     }
 
     suspend fun markAllNotificationsAsRead() = withContext(Dispatchers.IO) {
-        runCatching { api.markAllNotificationsAsRead() }
         notificationDao.markAllAsRead()
     }
 

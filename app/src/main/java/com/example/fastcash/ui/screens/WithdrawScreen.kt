@@ -10,6 +10,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.example.fastcash.R
+import com.example.fastcash.ui.components.transactionLabels
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,6 +32,8 @@ fun WithdrawScreen(
     viewModel: FastCashViewModel,
     modifier: Modifier = Modifier
 ) {
+    val language by viewModel.selectedLanguage.collectAsState()
+    val labels = transactionLabels(language)
     val amount by viewModel.withdrawAmount.collectAsState()
     val playerId by viewModel.withdrawPlayerId.collectAsState()
     val securityCode by viewModel.withdrawSecurityCode.collectAsState()
@@ -88,20 +92,20 @@ fun WithdrawScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "PAYOUT QUEUED",
+                        text = labels.getString(R.string.tx_queued),
                         style = MaterialTheme.typography.labelSmall,
                         color = NeonPink,
                         letterSpacing = 1.sp
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Withdrawal received.",
+                        text = labels.getString(R.string.tx_withdraw_saved),
                         style = MaterialTheme.typography.headlineMedium,
                         color = TextPrimary
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = "Your request reference is:",
+                        text = labels.getString(R.string.tx_reference),
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
                     )
@@ -144,7 +148,7 @@ fun WithdrawScreen(
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Text(
-                            text = "TRACK STATUS",
+                            text = labels.getString(R.string.tx_track_action),
                             color = TextPrimary,
                             style = MaterialTheme.typography.labelLarge
                         )
@@ -166,18 +170,18 @@ fun WithdrawScreen(
         item {
             Column {
                 Text(
-                    text = "WITHDRAWAL CHANNEL // 02",
+                    text = labels.getString(R.string.tx_withdraw_channel),
                     style = MaterialTheme.typography.labelSmall,
                     color = NeonPink
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Route funds to your bank",
+                    text = labels.getString(R.string.tx_withdraw_title),
                     style = MaterialTheme.typography.headlineMedium
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Use your 1xBet Cash withdrawal code, specify your recipient bank, and monitor the payout pipeline.",
+                    text = labels.getString(R.string.tx_withdraw_instructions),
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextMuted
                 )
@@ -198,7 +202,7 @@ fun WithdrawScreen(
                     // Amount
                     Column {
                         Text(
-                            text = "AMOUNT (LKR) *",
+                            text = labels.getString(R.string.tx_amount),
                             style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
@@ -223,7 +227,7 @@ fun WithdrawScreen(
                     // 1xBet Player ID
                     Column {
                         Text(
-                            text = "1XBET PLAYER ID *",
+                            text = labels.getString(R.string.tx_player),
                             style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
@@ -248,7 +252,7 @@ fun WithdrawScreen(
                     // Security Code
                     Column {
                         Text(
-                            text = "1XBET CASH SECURITY CODE *",
+                            text = labels.getString(R.string.tx_code),
                             style = MaterialTheme.typography.labelSmall,
                             color = NeonPink
                         )
@@ -273,7 +277,7 @@ fun WithdrawScreen(
                     // Bank Selector
                     Column {
                         Text(
-                            text = "RECIPIENT BANK *",
+                            text = labels.getString(R.string.tx_bank),
                             style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
@@ -323,7 +327,7 @@ fun WithdrawScreen(
                     // Account Number
                     Column {
                         Text(
-                            text = "BANK ACCOUNT NUMBER *",
+                            text = labels.getString(R.string.tx_account),
                             style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
@@ -348,7 +352,7 @@ fun WithdrawScreen(
                     // Contact Number
                     Column {
                         Text(
-                            text = "CONTACT / WHATSAPP NUMBER",
+                            text = labels.getString(R.string.tx_phone),
                             style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
@@ -397,10 +401,10 @@ fun WithdrawScreen(
                                 strokeWidth = 2.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("SUBMITTING…", color = TextPrimary, style = MaterialTheme.typography.labelLarge)
+                            Text(labels.getString(R.string.tx_sending), color = TextPrimary, style = MaterialTheme.typography.labelLarge)
                         } else {
                             Text(
-                                text = "SUBMIT WITHDRAWAL REQUEST",
+                                text = labels.getString(R.string.tx_withdraw_submit),
                                 color = TextPrimary,
                                 style = MaterialTheme.typography.labelLarge
                             )

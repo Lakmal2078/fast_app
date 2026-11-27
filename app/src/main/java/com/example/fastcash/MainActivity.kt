@@ -1,6 +1,11 @@
 package com.example.fastcash
 
 import android.os.Bundle
+import android.content.Intent
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.fastcash.ui.viewmodel.CustomerSessionModel
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -36,7 +41,10 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class MainActivity : ComponentActivity() {
-    private val viewModel: FastCashViewModel by viewModels()
+    private val session: CustomerSessionModel by viewModels()
+    private val viewModel: FastCashViewModel by viewModels {
+        viewModelFactory { initializer { FastCashViewModel(application, requireNotNull(session.customer.value)) } }
+    }
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,6 +53,23 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             FastCashTheme {
+                val customer by session.customer.collectAsState()
+                if (customer == null) {
+                    var key by remember { mutableStateOf("") }
+                    val busy by session.busy.collectAsState()
+                    val error by session.error.collectAsState()
+                    Column(Modifier.fillMaxSize().systemBarsPadding().padding(24.dp),
+                        verticalArrangement = Arrangement.Center) {
+                        Text("ගිණුමට පිවිසෙන්න / Sign in", style = MaterialTheme.typography.titleLarge)
+                        OutlinedTextField(key, { key = it }, label = { Text("ප්‍රවේශ යතුර / Access key") },
+                            modifier = Modifier.fillMaxWidth().testTag("access_key"),
+                            singleLine = true, visualTransformation = PasswordVisualTransformation())
+                        error?.let { Text(it, color = StatusRed) }
+                        Button(onClick = { session.signIn(key) }, enabled = !busy && key.isNotBlank(),
+                            modifier = Modifier.testTag("sign_in")) { Text("පිවිසෙන්න / Sign in") }
+                    }
+                    return@FastCashTheme
+                }
                 val currentScreen by viewModel.currentScreen.collectAsState()
                 val selectedLanguage by viewModel.selectedLanguage.collectAsState()
                 val unreadCount by viewModel.unreadNotificationsCount.collectAsState()
@@ -69,10 +94,9 @@ class MainActivity : ComponentActivity() {
                             unreadNotificationsCount = unreadCount,
                             onOpenNotifications = { viewModel.isNotificationsSheetOpen.value = true },
                             isAdminMode = isAdminMode,
-                            onToggleAdminMode = {
-                                // Disabled until server-side admin authorization is available.
-                                viewModel.isAdminMode.value = false
-                                if (currentScreen == ScreenDestination.ADMIN) viewModel.navigateTo(ScreenDestination.HOME)
+                            onSignOut = {
+                                finish()
+                                startActivity(Intent(this@MainActivity, MainActivity::class.java))
                             }
                         )
                     },
@@ -106,7 +130,7 @@ class MainActivity : ComponentActivity() {
                                     },
                                     label = {
                                         Text(
-                                            text = item.label,
+                                            text = if (selectedLanguage == "si") mapOf("Home" to "මුල් පිටුව", "Deposit" to "තැන්පතු", "Withdraw" to "ආපසු ගන්න", "Track" to "සොයන්න", "Support" to "සහාය")[item.label] ?: item.label else item.label,
                                             style = MaterialTheme.typography.labelSmall,
                                             color = if (isSelected) NeonCyan else TextMuted,
                                             fontSize = 9.sp

@@ -217,7 +217,7 @@ fun SupportScreen(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "We use request data strictly to process verified transactions. Bank slips and receipts are stored as protected file references and purged after transaction reconciliation.",
+                        text = "ඔබගේ ඉල්ලීම සොයා ගැනීමට යොමු අංකය භාවිත කරන්න. Receipt references are accepted as text.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextMuted,
                         fontSize = 12.sp

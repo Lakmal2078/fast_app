@@ -162,14 +162,9 @@ fun HomeScreen(
             }
         }
 
-        // Animated HUD Balance Card
         item {
-            HudBalanceCard()
-        }
-
-        // Live Ticker Banner
-        item {
-            LiveTicker()
+            val message by viewModel.syncError.collectAsState()
+            message?.let { Text(it, color = StatusYellow) }
         }
 
         // "How it works" 3 Steps

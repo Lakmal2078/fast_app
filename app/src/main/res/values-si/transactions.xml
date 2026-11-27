@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="tx_deposit_channel">තැන්පතු</string>
+  <string name="tx_deposit_title">ඔබේ ගිණුමට මුදල් එක් කරන්න</string>
+  <string name="tx_deposit_instructions">මුදල, ක්‍රීඩක අංකය සහ තිබේ නම් රිසිට්පතේ යොමු අංකය ඇතුළත් කරන්න.</string>
+  <string name="tx_destinations">නියෝජිත බැංකු ගිණුම්</string>
+  <string name="tx_amount">මුදල (රුපියල්) *</string>
+  <string name="tx_player">ක්‍රීඩක අංකය *</string>
+  <string name="tx_method">ගෙවීමේ ක්‍රමය</string>
+  <string name="tx_receipt">රිසිට්පතේ යොමු අංකය (අත්‍යවශ්‍ය නොවේ)</string>
+  <string name="tx_deposit_submit">තැන්පතු ඉල්ලීම යවන්න</string>
+  <string name="tx_sending">යවමින්…</string>
+  <string name="tx_accepted">ඉල්ලීම භාරගත්තා</string>
+  <string name="tx_saved">ඔබේ ඉල්ලීම සුරැකුණා.</string>
+  <string name="tx_reference">ඔබේ යොමු අංකය</string>
+  <string name="tx_keep_reference">තත්ත්වය බැලීමට මෙම යොමු අංකය සුරකින්න.</string>
+  <string name="tx_track_action">තත්ත්වය බලන්න</string>
+  <string name="tx_withdraw_channel">මුදල් ආපසු ගැනීම</string>
+  <string name="tx_withdraw_title">ඔබේ බැංකු ගිණුමට මුදල් ලබාගන්න</string>
+  <string name="tx_withdraw_instructions">මුදල් ලබාගැනීමේ කේතය සහ බැංකු ගිණුම් විස්තර ඇතුළත් කරන්න.</string>
+  <string name="tx_code">මුදල් ලබාගැනීමේ කේතය *</string>
+  <string name="tx_bank">මුදල් ලබන බැංකුව *</string>
+  <string name="tx_account">බැංකු ගිණුම් අංකය *</string>
+  <string name="tx_phone">දුරකථන හෝ WhatsApp අංකය</string>
+  <string name="tx_withdraw_submit">මුදල් ලබාගැනීමේ ඉල්ලීම යවන්න</string>
+  <string name="tx_queued">ඉල්ලීම භාරගත්තා</string>
+  <string name="tx_withdraw_saved">මුදල් ලබාගැනීමේ ඉල්ලීම සුරැකුණා.</string>
+  <string name="tx_track_title">ඉල්ලීමේ තත්ත්වය බලන්න</string>
+  <string name="tx_track_instructions">තත්ත්වය බැලීමට යොමු අංකය ඇතුළත් කරන්න.</string>
+  <string name="tx_found">ඉල්ලීම හමු වුණා</string>
+  <string name="tx_missing">මෙම ගිණුමේ එවැනි ඉල්ලීමක් හමු වුණේ නැහැ</string>
+  <string name="tx_history">ඔබේ ගනුදෙනු ඉතිහාසය</string>
+</resources>

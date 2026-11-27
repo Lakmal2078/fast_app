@@ -5,6 +5,10 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val debugBackendUrl = providers.gradleProperty("fastcashBackendUrl")
+    .orElse("https://fastcash-android-staging.lakmal-gamage.workers.dev/").get()
+require(debugBackendUrl.matches(Regex("https://[A-Za-z0-9.-]+(:[0-9]+)?/")))
+
 android {
     namespace = "com.example.fastcash"
     compileSdk = 35
@@ -36,7 +40,7 @@ android {
     buildTypes {
         debug {
             signingConfig = signingConfigs.getByName("debug")
-            buildConfigField("String", "BACKEND_BASE_URL", "\"https://fastcash-backend.agent-1xfast-srilanka.workers.dev/\"")
+            buildConfigField("String", "BACKEND_BASE_URL", "\"$debugBackendUrl\"")
         }
         release {
             isMinifyEnabled = false
@@ -87,4 +91,8 @@ dependencies {
     implementation(libs.gson)
 
     debugImplementation(libs.androidx.ui.tooling)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
 }

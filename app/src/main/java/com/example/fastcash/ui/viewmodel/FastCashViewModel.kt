@@ -32,16 +32,16 @@ data class LocalizedContent(
     val responsible: String
 )
 
-class FastCashViewModel(application: Application) : AndroidViewModel(application) {
+class FastCashViewModel(application: Application, customer: SignedInCustomer) : AndroidViewModel(application) {
     private val repository: FastCashRepository
 
     init {
-        val db = AppDatabase.getDatabase(application)
-        repository = FastCashRepository(db)
-        viewModelScope.launch {
-            repository.seedInitialDataIfEmpty()
-        }
+        val db = AppDatabase.open(application, customer.scope)
+        repository = FastCashRepository(db, customer.api, application.getSharedPreferences("requests_${customer.scope}", 0))
+
     }
+
+    val syncError = MutableStateFlow<String?>(null)
 
     // Navigation & Global UI State
     val currentScreen = MutableStateFlow(ScreenDestination.HOME)
@@ -138,7 +138,6 @@ class FastCashViewModel(application: Application) : AndroidViewModel(application
     val depositPlayerId = MutableStateFlow("")
     val depositPaymentMethod = MutableStateFlow("Bank transfer")
     val depositReceiptRef = MutableStateFlow("")
-    val depositReceiptAttached = MutableStateFlow(false)
     val depositIsSubmitting = MutableStateFlow(false)
     val depositSuccessRef = MutableStateFlow<String?>(null)
     val depositError = MutableStateFlow<String?>(null)
@@ -176,6 +175,7 @@ class FastCashViewModel(application: Application) : AndroidViewModel(application
     val reconSummary = MutableStateFlow<String?>(null)
 
     init {
+        refreshData()
         // Pre-fill profile if available
         viewModelScope.launch {
             userProfile.collect { prof ->
@@ -200,6 +200,7 @@ class FastCashViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun submitDeposit() {
+        if (depositIsSubmitting.value) return
         val amount = depositAmount.value.toLongOrNull()
         if (amount == null || amount < 1000 || amount > 500000) {
             depositError.value = "Amount must be between LKR 1,000 and 500,000"
@@ -218,13 +219,12 @@ class FastCashViewModel(application: Application) : AndroidViewModel(application
                     amount = amount,
                     playerId = depositPlayerId.value.trim(),
                     paymentMethod = depositPaymentMethod.value,
-                    receiptKey = if (depositReceiptAttached.value) "receipt_${System.currentTimeMillis()}.png" else depositReceiptRef.value.ifBlank { null }
+                    receiptKey = depositReceiptRef.value.trim().ifBlank { null }
                 )
                 depositSuccessRef.value = ref
                 // Reset form
                 depositAmount.value = ""
                 depositReceiptRef.value = ""
-                depositReceiptAttached.value = false
             } catch (e: Exception) {
                 depositError.value = e.message ?: "Failed to submit deposit request"
             } finally {
@@ -234,10 +234,12 @@ class FastCashViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun resetDepositSuccess() {
+        depositSuccessRef.value?.let(repository::acknowledge)
         depositSuccessRef.value = null
     }
 
     fun submitWithdrawal() {
+        if (withdrawIsSubmitting.value) return
         val amount = withdrawAmount.value.toLongOrNull()
         if (amount == null || amount < 1000 || amount > 500000) {
             withdrawError.value = "Amount must be between LKR 1,000 and 500,000"
@@ -283,17 +285,31 @@ class FastCashViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun resetWithdrawalSuccess() {
+        withdrawSuccessRef.value?.let(repository::acknowledge)
         withdrawSuccessRef.value = null
     }
+
+    val trackingMessage = MutableStateFlow<String?>(null)
+    private var searchJob: kotlinx.coroutines.Job? = null
 
     fun trackTransaction(ref: String) {
         val clean = ref.trim()
         if (clean.isBlank()) return
         trackSearchQuery.value = clean
-        viewModelScope.launch {
-            val found = repository.findTransactionByReference(clean)
-            trackedResult.value = found
-            isTrackSearched.value = true
+        searchJob?.cancel()
+        trackedResult.value = null
+        isTrackSearched.value = false
+        trackingMessage.value = "සොයමින්…"
+        searchJob = viewModelScope.launch {
+            try {
+                trackedResult.value = repository.findTransactionByReference(clean)
+                isTrackSearched.value = true
+                trackingMessage.value = null
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                trackingMessage.value = "තත්ත්වය ලබාගත නොහැක. නැවත උත්සාහ කරන්න."
+            }
         }
     }
 
@@ -371,9 +387,16 @@ class FastCashViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+
     fun refreshData() {
         viewModelScope.launch {
-            repository.syncFromRemote()
+            try {
+                repository.syncFromRemote()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                syncError.value = "දත්ත යාවත්කාලීන කිරීමට නොහැකි විය."
+            }
         }
     }
 }
