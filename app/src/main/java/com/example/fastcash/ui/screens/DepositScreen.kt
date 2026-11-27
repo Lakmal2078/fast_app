@@ -11,6 +11,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.example.fastcash.R
+import com.example.fastcash.ui.components.transactionLabels
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,11 +37,12 @@ fun DepositScreen(
     viewModel: FastCashViewModel,
     modifier: Modifier = Modifier
 ) {
+    val language by viewModel.selectedLanguage.collectAsState()
+    val labels = transactionLabels(language)
     val amount by viewModel.depositAmount.collectAsState()
     val playerId by viewModel.depositPlayerId.collectAsState()
     val paymentMethod by viewModel.depositPaymentMethod.collectAsState()
     val receiptRef by viewModel.depositReceiptRef.collectAsState()
-    val receiptAttached by viewModel.depositReceiptAttached.collectAsState()
     val isSubmitting by viewModel.depositIsSubmitting.collectAsState()
     val successRef by viewModel.depositSuccessRef.collectAsState()
     val error by viewModel.depositError.collectAsState()
@@ -84,20 +87,20 @@ fun DepositScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "REQUEST ACCEPTED",
+                        text = labels.getString(R.string.tx_accepted),
                         style = MaterialTheme.typography.labelSmall,
                         color = NeonCyan,
                         letterSpacing = 1.sp
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Signal received.",
+                        text = labels.getString(R.string.tx_saved),
                         style = MaterialTheme.typography.headlineMedium,
                         color = TextPrimary
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = "Your request reference is:",
+                        text = labels.getString(R.string.tx_reference),
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
                     )
@@ -111,7 +114,7 @@ fun DepositScreen(
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = "Keep this reference safe — it is your control key to track agent processing.",
+                        text = labels.getString(R.string.tx_keep_reference),
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextMuted,
                         fontSize = 12.sp
@@ -140,7 +143,7 @@ fun DepositScreen(
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Text(
-                            text = "TRACK STATUS",
+                            text = labels.getString(R.string.tx_track_action),
                             color = DarkBackground,
                             style = MaterialTheme.typography.labelLarge
                         )
@@ -162,18 +165,18 @@ fun DepositScreen(
         item {
             Column {
                 Text(
-                    text = "DEPOSIT CHANNEL // 01",
+                    text = labels.getString(R.string.tx_deposit_channel),
                     style = MaterialTheme.typography.labelSmall,
                     color = NeonCyan
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Load your player wallet",
+                    text = labels.getString(R.string.tx_deposit_title),
                     style = MaterialTheme.typography.headlineMedium
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Transfer to an active agent account, attach your receipt, and receive an instant tracking key.",
+                    text = labels.getString(R.string.tx_deposit_instructions),
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextMuted
                 )
@@ -190,12 +193,13 @@ fun DepositScreen(
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = "ACTIVE AGENT ACCOUNTS // TRANSFER DESTINATION",
+                        text = labels.getString(R.string.tx_destinations),
                         style = MaterialTheme.typography.labelSmall,
                         color = NeonPink
                     )
                     Spacer(modifier = Modifier.height(8.dp))
 
+                    if (agentAccounts.isEmpty()) Text(if (language == "si") "දැනට බැංකු ගිණුම් විස්තර නොමැත." else "No destination accounts available.")
                     agentAccounts.forEach { acc ->
                         Row(
                             modifier = Modifier
@@ -255,7 +259,7 @@ fun DepositScreen(
                     // Amount (LKR)
                     Column {
                         Text(
-                            text = "AMOUNT (LKR) *",
+                            text = labels.getString(R.string.tx_amount),
                             style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
@@ -303,7 +307,7 @@ fun DepositScreen(
                     // 1xBet Player ID
                     Column {
                         Text(
-                            text = "1XBET PLAYER ID *",
+                            text = labels.getString(R.string.tx_player),
                             style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
@@ -328,7 +332,7 @@ fun DepositScreen(
                     // Payment Method Selection
                     Column {
                         Text(
-                            text = "PAYMENT METHOD",
+                            text = labels.getString(R.string.tx_method),
                             style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
@@ -354,7 +358,7 @@ fun DepositScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = method,
+                                        text = if (language == "si") mapOf("Bank transfer" to "බැංකු මාරුව", "Cash deposit" to "මුදල් තැන්පතුව", "iPay wallet" to "iPay පසුම්බිය")[method] ?: method else method,
                                         style = MaterialTheme.typography.labelSmall,
                                         fontSize = 10.sp,
                                         color = if (isSelected) NeonCyan else TextSecondary,
@@ -368,7 +372,7 @@ fun DepositScreen(
                     // Bank Receipt Reference
                     Column {
                         Text(
-                            text = "BANK SLIP / RECEIPT REFERENCE (OPTIONAL)",
+                            text = labels.getString(R.string.tx_receipt),
                             style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
@@ -388,39 +392,6 @@ fun DepositScreen(
                                 unfocusedTextColor = TextPrimary
                             )
                         )
-                    }
-
-                    // Attach Receipt Screenshot
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(4.dp))
-                            .border(
-                                1.dp,
-                                if (receiptAttached) StatusGreen else NeonCyan.copy(alpha = 0.5f),
-                                RoundedCornerShape(4.dp)
-                            )
-                            .background(DarkSurface)
-                            .clickable {
-                                viewModel.depositReceiptAttached.value = !receiptAttached
-                            }
-                            .padding(14.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = if (receiptAttached) Icons.Default.CheckCircle else Icons.Default.UploadFile,
-                                contentDescription = null,
-                                tint = if (receiptAttached) StatusGreen else NeonCyan,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (receiptAttached) "Receipt Attached (bank_slip.jpg)" else "Attach Receipt Screenshot (Tap to select)",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (receiptAttached) StatusGreen else NeonCyan
-                            )
-                        }
                     }
 
                     if (error != null) {
@@ -450,10 +421,10 @@ fun DepositScreen(
                                 strokeWidth = 2.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("SUBMITTING…", color = DarkBackground, style = MaterialTheme.typography.labelLarge)
+                            Text(labels.getString(R.string.tx_sending), color = DarkBackground, style = MaterialTheme.typography.labelLarge)
                         } else {
                             Text(
-                                text = "SUBMIT SECURE REQUEST",
+                                text = labels.getString(R.string.tx_deposit_submit),
                                 color = DarkBackground,
                                 style = MaterialTheme.typography.labelLarge
                             )

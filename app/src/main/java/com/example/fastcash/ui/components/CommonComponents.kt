@@ -133,164 +133,6 @@ fun TimelineView(status: TransactionStatus, modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-fun HudBalanceCard(modifier: Modifier = Modifier) {
-    val infiniteTransition = rememberInfiniteTransition(label = "hud")
-    val pulse by infiniteTransition.animateFloat(
-        initialValue = 0.6f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse"
-    )
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .border(1.dp, NeonCyan.copy(alpha = 0.5f), RoundedCornerShape(8.dp)),
-        colors = CardDefaults.cardColors(containerColor = DarkCard.copy(alpha = 0.95f)),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            // Top Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "FC / 01",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(StatusGreen.copy(alpha = pulse))
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "AGENTS ONLINE",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = NeonCyan
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "NETWORK LIQUIDITY // LIVE",
-                style = MaterialTheme.typography.labelSmall,
-                color = TextMuted
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    text = "LKR ",
-                    fontSize = 18.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "486,920",
-                    fontSize = 32.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = NeonCyan,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // 12 Equalizer signal bars
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(42.dp)
-                    .border(0.5.dp, Color(0x33FFFFFF), RoundedCornerShape(2.dp))
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.Bottom
-            ) {
-                val heights = listOf(0.35f, 0.65f, 0.9f, 0.5f, 1.0f, 0.75f, 0.4f, 0.85f, 0.6f, 0.95f, 0.7f, 0.45f)
-                heights.forEachIndexed { idx, barHeight ->
-                    val animMultiplier by infiniteTransition.animateFloat(
-                        initialValue = 0.6f,
-                        targetValue = 1.0f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(600 + (idx * 90), easing = FastOutSlowInEasing),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "bar_$idx"
-                    )
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight(barHeight * animMultiplier)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(NeonPink, NeonCyan)
-                                )
-                            )
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "SECURE WALLET BRIDGE",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted
-                )
-                Text(
-                    text = "ENCRYPTED // 256",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = NeonPink
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun LiveTicker(modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = NeonCyan.copy(alpha = 0.05f),
-        border = null
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp, horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.Bolt,
-                contentDescription = null,
-                tint = NeonCyan,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "FAST CASH NETWORK /// WALASMULLA · BELIATTA ROAD 24/7 /// REAL-TIME 1XBET OPS",
-                style = MaterialTheme.typography.labelSmall,
-                color = NeonCyan,
-                maxLines = 1
-            )
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FastCashTopBar(
@@ -299,7 +141,7 @@ fun FastCashTopBar(
     unreadNotificationsCount: Int,
     onOpenNotifications: () -> Unit,
     isAdminMode: Boolean,
-    onToggleAdminMode: () -> Unit,
+    onSignOut: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     TopAppBar(
@@ -409,12 +251,12 @@ fun FastCashTopBar(
 
             // Admin Toggle Button
             IconButton(
-                onClick = onToggleAdminMode,
+                onClick = onSignOut,
                 modifier = Modifier.testTag("admin_toggle_btn")
             ) {
                 Icon(
-                    imageVector = Icons.Default.AdminPanelSettings,
-                    contentDescription = "Admin Console",
+                    imageVector = Icons.Default.ExitToApp,
+                    contentDescription = "වරන්න / Sign out",
                     tint = if (isAdminMode) NeonPink else TextMuted
                 )
             }

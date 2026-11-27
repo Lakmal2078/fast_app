@@ -5,6 +5,9 @@ import retrofit2.http.*
 
 interface FastCashApiService {
 
+    @GET("api/session")
+    suspend fun session(): Response<CustomerSession>
+
     @GET("api/status")
     suspend fun getStatus(): Response<StatusResponse>
 
@@ -20,13 +23,15 @@ interface FastCashApiService {
 
     @POST("api/deposits")
     suspend fun createDeposit(
+        @Header("Idempotency-Key") key: String,
         @Body request: DepositRequest
-    ): Response<TransactionResponse>
+    ): Response<TransactionDto>
 
     @POST("api/withdrawals")
     suspend fun createWithdrawal(
+        @Header("Idempotency-Key") key: String,
         @Body request: WithdrawalRequest
-    ): Response<TransactionResponse>
+    ): Response<TransactionDto>
 
     @PATCH("api/admin/transactions/{id}")
     suspend fun updateTransactionStatus(

@@ -41,12 +41,3 @@ CREATE TABLE IF NOT EXISTS app_settings (
     promoCode TEXT NOT NULL DEFAULT 'VGSL'
 );
 
--- Seed initial agent accounts
-INSERT OR IGNORE INTO agent_accounts (id, label, accountNumber, method, isActive) VALUES
-(1, 'Bank of Ceylon (BOC) - Fast Cash LK', '8340192841', 'Bank transfer', 1),
-(2, 'People''s Bank - Walasmulla Operations', '2049102941', 'Bank transfer', 1),
-(3, 'Sampath Bank - Fast Cash Corporate', '1004819204', 'iPay / Bank', 1);
-
--- Seed app settings
-INSERT OR IGNORE INTO app_settings (id, whatsappNumber, minTransaction, maxTransaction, promoCode) VALUES
-(1, '+94765865387', 1000, 500000, 'VGSL');

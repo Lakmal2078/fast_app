@@ -10,3 +10,12 @@ binding = "AI"
 [[kv_namespaces]]
 binding = "KV"
 id = "31da2b8837344af192a6a1e2c345baa6"
+
+[env.staging]
+name = "fastcash-android-staging"
+workers_dev = true
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "fastcash-android-staging"
+database_id = "ff4fa113-2239-4da4-9c58-036543edebc6"

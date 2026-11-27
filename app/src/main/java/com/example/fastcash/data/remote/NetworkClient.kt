@@ -9,27 +9,17 @@ import java.util.concurrent.TimeUnit
 
 object NetworkClient {
 
-    private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = if (BuildConfig.DEBUG) {
-            HttpLoggingInterceptor.Level.NONE
-        } else {
-            HttpLoggingInterceptor.Level.NONE
-        }
-    }
-
-    private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .writeTimeout(15, TimeUnit.SECONDS)
-        .addInterceptor(loggingInterceptor)
-        .build()
-
-    val apiService: FastCashApiService by lazy {
-        Retrofit.Builder()
+    fun authenticated(accessKey: String): FastCashApiService {
+        val client = OkHttpClient.Builder()
+            .followRedirects(false)
+            .addInterceptor { chain ->
+                chain.proceed(chain.request().newBuilder()
+                    .header("Authorization", "Bearer $accessKey").build())
+            }.build()
+        return Retrofit.Builder()
             .baseUrl(BuildConfig.BACKEND_BASE_URL)
-            .client(okHttpClient)
+            .client(client)
             .addConverterFactory(GsonConverterFactory.create())
-            .build()
-            .create(FastCashApiService::class.java)
+            .build().create(FastCashApiService::class.java)
     }
 }

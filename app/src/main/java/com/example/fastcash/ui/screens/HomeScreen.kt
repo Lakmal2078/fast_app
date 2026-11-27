@@ -153,7 +153,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "15–30 min review",
+                            text = "Track by reference",
                             style = MaterialTheme.typography.labelSmall,
                             color = TextMuted
                         )
@@ -162,14 +162,9 @@ fun HomeScreen(
             }
         }
 
-        // Animated HUD Balance Card
         item {
-            HudBalanceCard()
-        }
-
-        // Live Ticker Banner
-        item {
-            LiveTicker()
+            val message by viewModel.syncError.collectAsState()
+            message?.let { Text(it, color = StatusYellow) }
         }
 
         // "How it works" 3 Steps

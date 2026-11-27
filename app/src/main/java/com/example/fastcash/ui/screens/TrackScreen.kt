@@ -12,6 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.example.fastcash.R
+import com.example.fastcash.ui.components.transactionLabels
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,6 +36,8 @@ fun TrackScreen(
     viewModel: FastCashViewModel,
     modifier: Modifier = Modifier
 ) {
+    val language by viewModel.selectedLanguage.collectAsState()
+    val labels = transactionLabels(language)
     val searchQuery by viewModel.trackSearchQuery.collectAsState()
     val trackedResult by viewModel.trackedResult.collectAsState()
     val isSearched by viewModel.isTrackSearched.collectAsState()
@@ -63,12 +67,12 @@ fun TrackScreen(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Track your request",
+                    text = labels.getString(R.string.tx_track_title),
                     style = MaterialTheme.typography.headlineMedium
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Enter your unique reference key to inspect verification status and payout timeline.",
+                    text = labels.getString(R.string.tx_track_instructions),
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextMuted
                 )
@@ -112,6 +116,10 @@ fun TrackScreen(
             }
         }
 
+        item {
+            val message by viewModel.trackingMessage.collectAsState()
+            message?.let { Text(it) }
+        }
         // Search Result Card
         if (isSearched) {
             item {
@@ -136,7 +144,7 @@ fun TrackScreen(
                             ) {
                                 Column {
                                     Text(
-                                        text = "SIGNAL ACQUIRED // FOUND",
+                                        text = labels.getString(R.string.tx_found),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = StatusGreen
                                     )
@@ -226,13 +234,13 @@ fun TrackScreen(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                text = "SIGNAL LOST // NOT FOUND",
+                                text = labels.getString(R.string.tx_missing),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = StatusRed
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "No request matching reference \"$searchQuery\" was found. Please check your reference code or contact support.",
+                                text = if (language == "si") "යොමු අංකය පරීක්ෂා කර නැවත සොයන්න." else "No request matching reference \"$searchQuery\" was found. Please check your reference code or contact support.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextMuted
                             )
@@ -330,7 +338,7 @@ fun TrackScreen(
         item {
             Column {
                 Text(
-                    text = "TRANSACTION HISTORY // ALL LOGS",
+                    text = labels.getString(R.string.tx_history),
                     style = MaterialTheme.typography.labelSmall,
                     color = NeonCyan
                 )

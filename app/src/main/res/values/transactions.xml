@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="tx_deposit_channel">DEPOSIT CHANNEL // 01</string>
+  <string name="tx_deposit_title">Load your player wallet</string>
+  <string name="tx_deposit_instructions">Enter your deposit details and optional receipt reference.</string>
+  <string name="tx_destinations">ACTIVE AGENT ACCOUNTS // TRANSFER DESTINATION</string>
+  <string name="tx_amount">AMOUNT (LKR) *</string>
+  <string name="tx_player">1XBET PLAYER ID *</string>
+  <string name="tx_method">PAYMENT METHOD</string>
+  <string name="tx_receipt">BANK SLIP / RECEIPT REFERENCE (OPTIONAL)</string>
+  <string name="tx_deposit_submit">SUBMIT SECURE REQUEST</string>
+  <string name="tx_sending">SUBMITTING…</string>
+  <string name="tx_accepted">REQUEST ACCEPTED</string>
+  <string name="tx_saved">Signal received.</string>
+  <string name="tx_reference">Your request reference is:</string>
+  <string name="tx_keep_reference">Keep this reference safe — it is your control key to track agent processing.</string>
+  <string name="tx_track_action">TRACK STATUS</string>
+  <string name="tx_withdraw_channel">WITHDRAWAL CHANNEL // 02</string>
+  <string name="tx_withdraw_title">Route funds to your bank</string>
+  <string name="tx_withdraw_instructions">Use your 1xBet Cash withdrawal code, specify your recipient bank, and monitor the payout pipeline.</string>
+  <string name="tx_code">1XBET CASH SECURITY CODE *</string>
+  <string name="tx_bank">RECIPIENT BANK *</string>
+  <string name="tx_account">BANK ACCOUNT NUMBER *</string>
+  <string name="tx_phone">CONTACT / WHATSAPP NUMBER</string>
+  <string name="tx_withdraw_submit">SUBMIT WITHDRAWAL REQUEST</string>
+  <string name="tx_queued">PAYOUT QUEUED</string>
+  <string name="tx_withdraw_saved">Withdrawal received.</string>
+  <string name="tx_track_title">Track your request</string>
+  <string name="tx_track_instructions">Enter your unique reference key to inspect verification status and payout timeline.</string>
+  <string name="tx_found">SIGNAL ACQUIRED // FOUND</string>
+  <string name="tx_missing">SIGNAL LOST // NOT FOUND</string>
+  <string name="tx_history">TRANSACTION HISTORY // ALL LOGS</string>
+</resources>

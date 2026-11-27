@@ -25,12 +25,7 @@ data class WithdrawalRequest(
     val contactNumber: String? = null
 )
 
-data class TransactionResponse(
-    val success: Boolean,
-    val reference: String,
-    val id: Long? = null,
-    val timestamp: Long
-)
+data class CustomerSession(val customerId: String)
 
 data class TransactionDto(
     val id: Long = 0,
