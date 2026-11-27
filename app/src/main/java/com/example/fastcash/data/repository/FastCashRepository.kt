@@ -5,7 +5,7 @@ import com.example.fastcash.data.model.*
 import com.example.fastcash.data.remote.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.firstOrNull
+import androidx.room.withTransaction
 import kotlinx.coroutines.withContext
 import java.util.UUID
 import android.content.SharedPreferences
@@ -57,12 +57,21 @@ class FastCashRepository(
         val fingerprint = MessageDigest.getInstance("SHA-256")
             .digest(Gson().toJson(request).toByteArray()).joinToString("") { "%02x".format(it) }
         val slot = "$kind-$fingerprint"
-        val key = pending.getString(slot, null) ?: UUID.randomUUID().toString().also {
-            check(pending.edit().putString(slot, it).commit())
+        val key = synchronized(pending) {
+            pending.getString(slot, null) ?: UUID.randomUUID().toString().also {
+                check(pending.edit().putString(slot, it).commit())
+            }
         }
         val saved = send(key).confirmed()
         check(saved.reference.isNotBlank() && saved.id > 0 && saved.type == kind)
-        cache(saved)
+        db.withTransaction {
+            val isNew = transactionDao.getByReference(saved.reference) == null
+            cache(saved)
+            if (isNew) notificationDao.insert(NotificationEntity(
+                title = "ඉල්ලීම භාරගත්තා",
+                message = "${saved.reference} · LKR ${saved.amount}"
+            ))
+        }
         check(pending.edit().putString("ack-${saved.reference}", slot).commit())
         saved.reference
     }

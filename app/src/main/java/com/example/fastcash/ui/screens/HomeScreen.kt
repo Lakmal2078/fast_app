@@ -153,7 +153,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "15–30 min review",
+                            text = "Track by reference",
                             style = MaterialTheme.typography.labelSmall,
                             color = TextMuted
                         )

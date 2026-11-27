@@ -33,12 +33,14 @@ data class LocalizedContent(
 )
 
 class FastCashViewModel(application: Application, customer: SignedInCustomer) : AndroidViewModel(application) {
-    private val repository: FastCashRepository
+    private val db = AppDatabase.open(application, customer.scope)
+    private val repository = FastCashRepository(
+        db, customer.api, application.getSharedPreferences("requests_${customer.scope}", 0)
+    )
 
-    init {
-        val db = AppDatabase.open(application, customer.scope)
-        repository = FastCashRepository(db, customer.api, application.getSharedPreferences("requests_${customer.scope}", 0))
-
+    override fun onCleared() {
+        db.close()
+        super.onCleared()
     }
 
     val syncError = MutableStateFlow<String?>(null)
@@ -203,11 +205,11 @@ class FastCashViewModel(application: Application, customer: SignedInCustomer) : 
         if (depositIsSubmitting.value) return
         val amount = depositAmount.value.toLongOrNull()
         if (amount == null || amount < 1000 || amount > 500000) {
-            depositError.value = "Amount must be between LKR 1,000 and 500,000"
+            depositError.value = if (selectedLanguage.value == "si") "මුදල රු. 1,000 සහ 500,000 අතර විය යුතුයි." else "Amount must be between LKR 1,000 and 500,000"
             return
         }
         if (depositPlayerId.value.trim().length < 4) {
-            depositError.value = "Please enter a valid 1xBet Player ID"
+            depositError.value = if (selectedLanguage.value == "si") "වලංගු ක්‍රීඩක අංකයක් ඇතුළත් කරන්න." else "Please enter a valid 1xBet Player ID"
             return
         }
 
@@ -242,11 +244,11 @@ class FastCashViewModel(application: Application, customer: SignedInCustomer) : 
         if (withdrawIsSubmitting.value) return
         val amount = withdrawAmount.value.toLongOrNull()
         if (amount == null || amount < 1000 || amount > 500000) {
-            withdrawError.value = "Amount must be between LKR 1,000 and 500,000"
+            withdrawError.value = if (selectedLanguage.value == "si") "මුදල රු. 1,000 සහ 500,000 අතර විය යුතුයි." else "Amount must be between LKR 1,000 and 500,000"
             return
         }
         if (withdrawPlayerId.value.trim().length < 4) {
-            withdrawError.value = "Please enter a valid 1xBet Player ID"
+            withdrawError.value = if (selectedLanguage.value == "si") "වලංගු ක්‍රීඩක අංකයක් ඇතුළත් කරන්න." else "Please enter a valid 1xBet Player ID"
             return
         }
         if (withdrawSecurityCode.value.trim().isBlank()) {
@@ -392,6 +394,7 @@ class FastCashViewModel(application: Application, customer: SignedInCustomer) : 
         viewModelScope.launch {
             try {
                 repository.syncFromRemote()
+                syncError.value = null
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {

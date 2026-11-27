@@ -6,30 +6,12 @@ Official agent operations bridge between 1xBet player wallets and Fast Cash agen
 
 ## 🌟 Key Features
 
-- **Multi-Language Support**: Switch seamlessly between English, Sinhala (සිංහල), and Tamil (தமிழ்).
-- **Network Liquidity HUD**: Real-time network balance monitor with animated cyberpunk signal equalizer bars and active agent indicators.
-- **Deposit Channel**:
-  - Load player wallet with LKR 1,000 to 500,000 limits.
-  - Active agent bank accounts (BOC, People's Bank, Sampath) with quick copy buttons.
-  - Bank slip reference and receipt screenshot attachment.
-  - Instant unique reference code generation (`TXN-XXXXXX`) and progress tracking.
-- **Withdrawal Channel**:
-  - Route funds from 1xBet player wallet to Sri Lankan bank accounts.
-  - Verification using 1xBet Cash withdrawal security codes.
-  - Instant tracking reference generation and payout queueing.
-- **Real-Time Track & Trace**:
-  - Look up any transaction by reference.
-  - 3-stage visual interactive timeline (`SUBMITTED` -> `PROCESSING` -> `COMPLETED`).
-  - Clear decision note explanation if a request is rejected.
-- **Customer Profile**:
-  - Save customer name and 1xBet Player ID to prefill future transactions.
-- **Notification Centre**:
-  - In-app notification drawer with unread counter badges and timeline status alerts.
-- **Admin Control Room**:
-  - Live queue monitoring with reference search and status filters (`ALL`, `PENDING`, `PROCESSING`, `COMPLETED`, `REJECTED`).
-  - Request review with status updates and mandatory rejection decision notes.
-  - Bank Statement Reconciliation engine matching bank statements (BOC, People's Bank, LOLC, Sampath, iPay) to pending customer requests.
-  - Network settings control (WhatsApp number, limits, promo codes).
+- **Customer access** — Customer keys identify the owner of each request. The app shows that customer's history and profile.
+- **Deposit and withdrawal requests** — Submit LKR 1,000–500,000 and receive a reference after the server has saved the request. Deposit receipts use an optional text reference.
+- **Tracking** — Search your references, see a status timeline, and review decisions.
+- **Languages** — English and Sinhala transaction labels, with English, Sinhala, and Tamil home content.
+- **Notifications** — View local confirmations for your signed-in account.
+- **Agent tools** — The administrative UI remains disabled pending a separately authorized agent workflow.
 - **Human Channel Support & Responsible Gaming**:
   - Direct WhatsApp link to official agents (`+94765865387`).
   - Responsible gambling disclosure (18+ rules) and privacy policy.
@@ -106,3 +88,15 @@ Manus_web/
 
 ## 🔒 Security & Responsible Gaming
 Fast Cash LK is strictly intended for users 18 years of age and older. Always gamble responsibly.
+
+## Customer transaction staging
+
+The debug variant uses the isolated Fast Cash staging Worker. To use another HTTPS staging deployment, pass `-PfastcashBackendUrl=https://your-worker.example/` to Gradle. Release builds require the authenticated Worker and a separately configured production D1 binding before rollout.
+
+For a fresh database, apply `backend/schema.sql` and then `backend/migrations/001_customer_ownership.sql` exactly once. For an existing database with the original schema, apply only the migration. Back up the database before upgrading. Existing transactions retain their records with no assigned customer. Verify ownership independently before assigning historical records. The Android app likewise leaves the old unscoped Room database intact and uses a separate cache for each authenticated customer and backend.
+
+Each customer needs an independently issued 32-byte random access key encoded as 64 lowercase hex characters. In a trusted provisioning environment generate it with a cryptographic random generator. Insert its lowercase SHA-256 hex digest (hash the UTF-8 hex string) and a stable opaque customer ID into `customer_credentials(key_hash, customer_id)` using bound parameters. Deliver the original key privately to that customer. Revoke access by removing its credential row. Never use a player ID as proof of ownership. The Android sign-in keeps the key in memory and requires sign-in after process death. A financial reference is returned after D1 has committed the request. Retrying the same pending form reuses its request key.
+
+From `backend/`, use `npm ci`, then `npx wrangler deploy --env staging` to deploy only staging. Test that deployment with `python3 tests/staging.py` using the `STAGING_URL`, `STAGING_ALICE`, and `STAGING_BOB` environment variables. Use dedicated synthetic staging customers. The test creates synthetic deposit and withdrawal records. Verified bank destinations must be provisioned separately. No payment processor is connected.
+
+The Android staging workflow builds with JDK 21 and SDK 35 and uses API 35 phone and tablet emulators. Configure the repository secrets `FASTCASH_STAGING_PHONE` and `FASTCASH_STAGING_TABLET` with separate staging-only customer keys. Both device profiles run the Sinhala deposit-to-tracking test and Room collision regression.

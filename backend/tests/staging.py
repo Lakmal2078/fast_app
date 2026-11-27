@@ -1,4 +1,5 @@
 """Run against isolated staging using two provisioned synthetic customer access keys."""
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 import uuid
@@ -8,8 +9,8 @@ from urllib.request import Request, urlopen
 base = os.environ["STAGING_URL"].rstrip("/")
 alice, bob = (os.environ[name] for name in ("STAGING_ALICE", "STAGING_BOB"))
 
-def call(route, key, body=None, request_key=None, expected=200):
-    headers = {"Content-Type": "application/json"}
+def call(route, key, body=None, request_key=None, expected=200, discard=False):
+    headers = {"Content-Type": "application/json", "User-Agent": "FastCash-Staging-Test/1.0"}
     if key:
         headers["Authorization"] = "Bearer " + key
     if request_key:
@@ -21,7 +22,10 @@ def call(route, key, body=None, request_key=None, expected=200):
     except HTTPError as exc:
         response = exc
     with response:
-        assert response.status == expected, (route, expected, response.status)
+        allowed = expected if isinstance(expected, tuple) else (expected,)
+        assert response.status in allowed, (route, expected, response.status)
+        if discard:
+            return None  # Close the connection without consuming the committed reference.
         return json.load(response)
 
 assert call("session", alice)["customerId"] != call("session", bob)["customerId"]
@@ -31,9 +35,10 @@ for route in ("deposits", "withdrawals"):
     if route == "withdrawals":
         body.update(bank="Synthetic Bank", accountNumber="00000000", securityCode="test-only")
     key = str(uuid.uuid4())
-    first = call(route, alice, body, key, 201)
-    # Replay the same logical request after discarding the first response.
-    replay = call(route, alice, body, key)
+    call(route, alice, body, key, 201, discard=True)
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        futures = [workers.submit(call, route, alice, body, key) for _ in range(2)]
+        first, replay = [future.result() for future in futures]
     assert first == replay
     call(route, alice, dict(body, amount=1400), key, 409)
     other = call(route, bob, body, key, 201)

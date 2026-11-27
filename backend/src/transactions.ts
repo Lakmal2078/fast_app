@@ -64,7 +64,7 @@ async function submit(c: Context<Bindings>, withdrawal: boolean) {
   const reference = 'TXN-' + crypto.randomUUID().toUpperCase();
   // A single conditional insert and read in a D1 transaction also handles concurrent retries.
   const db = c.env.DB!;
-  const [, read] = await db.batch([
+  const [, read] = await db.batch<Record<string, unknown> & { request_hash: string; reference: string }>([
     db.prepare(`INSERT INTO transactions
       (customer_id, request_key, request_hash, reference, timestamp, type, amount, playerId,
        paymentMethod, bank, accountNumber, securityCode, contactNumber, receiptKey)

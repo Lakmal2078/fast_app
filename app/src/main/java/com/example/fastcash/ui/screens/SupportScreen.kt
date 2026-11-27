@@ -159,7 +159,7 @@ fun SupportScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "24/7 Agent Availability · Automated Bank Statement Reconciliation · Zero hidden commissions.",
+                        text = "Include your request reference when contacting support.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextMuted
                     )
