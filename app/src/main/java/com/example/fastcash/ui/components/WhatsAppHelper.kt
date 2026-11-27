@@ -19,7 +19,8 @@ object WhatsAppHelper {
         paymentMethod: String,
         receiptRef: String?,
         customerName: String?,
-        customerEmail: String?
+        customerEmail: String?,
+        hasSlipImage: Boolean = false
     ): String {
         val formattedAmount = NumberFormat.getNumberInstance(Locale.US).format(amount)
         val lines = mutableListOf(
@@ -34,6 +35,9 @@ object WhatsAppHelper {
         }
         if (!receiptRef.isNullOrBlank()) {
             lines.add("Receipt / Slip Ref: $receiptRef")
+        }
+        if (hasSlipImage) {
+            lines.add("Bank Slip Photo: Uploaded in app (sharing image next)")
         }
         val customerLabel = listOfNotNull(
             customerName?.takeIf { it.isNotBlank() },
@@ -97,6 +101,44 @@ object WhatsAppHelper {
             Toast.makeText(
                 context,
                 "WhatsApp is not installed on this device.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    fun shareImageToWhatsApp(context: Context, imageUri: Uri, message: String? = null) {
+        val packages = listOf("com.whatsapp", "com.whatsapp.w4b")
+        for (pkg in packages) {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "image/jpeg"
+                putExtra(Intent.EXTRA_STREAM, imageUri)
+                if (!message.isNullOrBlank()) {
+                    putExtra(Intent.EXTRA_TEXT, message)
+                }
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                setPackage(pkg)
+            }
+            try {
+                context.startActivity(intent)
+                return
+            } catch (_: ActivityNotFoundException) {
+                // Try next WhatsApp package or fallback chooser
+            }
+        }
+        val fallback = Intent(Intent.ACTION_SEND).apply {
+            type = "image/jpeg"
+            putExtra(Intent.EXTRA_STREAM, imageUri)
+            if (!message.isNullOrBlank()) {
+                putExtra(Intent.EXTRA_TEXT, message)
+            }
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        try {
+            context.startActivity(Intent.createChooser(fallback, "Share Deposit Slip"))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(
+                context,
+                "No app found to share the slip image.",
                 Toast.LENGTH_LONG
             ).show()
         }

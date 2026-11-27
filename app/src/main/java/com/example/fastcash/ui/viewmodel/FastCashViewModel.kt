@@ -1,5 +1,6 @@
 package com.example.fastcash.ui.viewmodel
 
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,6 +13,7 @@ import com.example.fastcash.data.model.FirestoreUserProfile
 import com.example.fastcash.data.model.TransactionEntity
 import com.example.fastcash.data.model.TransactionStatus
 import com.example.fastcash.data.repository.FirestoreFastCashRepository
+import com.example.fastcash.ui.components.ProcessedSlip
 import com.example.fastcash.ui.components.WhatsAppHelper
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
@@ -213,9 +215,14 @@ class FastCashViewModel(
     val depositPlayerId = MutableStateFlow("")
     val depositPaymentMethod = MutableStateFlow("Bank transfer")
     val depositReceiptRef = MutableStateFlow("")
+    val depositSlipBase64 = MutableStateFlow<String?>(null)
+    val depositSlipShareUri = MutableStateFlow<Uri?>(null)
+    val depositSlipSizeKb = MutableStateFlow<Int?>(null)
+    val depositIsProcessingSlip = MutableStateFlow(false)
     val depositIsSubmitting = MutableStateFlow(false)
     val depositSuccessRef = MutableStateFlow<String?>(null)
     val depositWhatsappMessage = MutableStateFlow<String?>(null)
+    val depositSubmittedSlipUri = MutableStateFlow<Uri?>(null)
     val depositError = MutableStateFlow<String?>(null)
 
     // Withdrawal State
@@ -317,8 +324,21 @@ class FastCashViewModel(
         pendingWhatsappAutoLaunch.value = null
     }
 
+    fun setProcessedSlip(slip: ProcessedSlip) {
+        depositSlipBase64.value = slip.base64
+        depositSlipShareUri.value = slip.shareUri
+        depositSlipSizeKb.value = slip.sizeKb
+        depositError.value = null
+    }
+
+    fun clearSelectedSlip() {
+        depositSlipBase64.value = null
+        depositSlipShareUri.value = null
+        depositSlipSizeKb.value = null
+    }
+
     fun submitDeposit() {
-        if (depositIsSubmitting.value) return
+        if (depositIsSubmitting.value || depositIsProcessingSlip.value) return
         val amount = depositAmount.value.trim().toLongOrNull()
         val minAmt = appConfig.value.minTransaction
         val maxAmt = appConfig.value.maxTransaction
@@ -343,6 +363,8 @@ class FastCashViewModel(
         val destination = selectedAgentAccount.value
         val method = depositPaymentMethod.value
         val receipt = depositReceiptRef.value.trim().ifBlank { null }
+        val slipBase64 = depositSlipBase64.value
+        val slipUri = depositSlipShareUri.value
 
         depositIsSubmitting.value = true
         depositError.value = null
@@ -352,7 +374,8 @@ class FastCashViewModel(
                 playerId = cleanPlayerId,
                 paymentMethod = method,
                 destination = destination,
-                receiptKey = receipt
+                receiptKey = receipt,
+                slipImageBase64 = slipBase64
             )
             result.fold(
                 onSuccess = { ref ->
@@ -364,13 +387,16 @@ class FastCashViewModel(
                         paymentMethod = method,
                         receiptRef = receipt,
                         customerName = profileName.value.ifBlank { currentUserName },
-                        customerEmail = currentUserEmail
+                        customerEmail = currentUserEmail,
+                        hasSlipImage = slipBase64 != null
                     )
                     depositSuccessRef.value = ref
                     depositWhatsappMessage.value = waMsg
+                    depositSubmittedSlipUri.value = slipUri
                     pendingWhatsappAutoLaunch.value = waMsg
                     depositAmount.value = ""
                     depositReceiptRef.value = ""
+                    clearSelectedSlip()
                 },
                 onFailure = { e ->
                     depositError.value = e.localizedMessage ?: "Failed to submit deposit request"
@@ -383,6 +409,7 @@ class FastCashViewModel(
     fun resetDepositSuccess() {
         depositSuccessRef.value = null
         depositWhatsappMessage.value = null
+        depositSubmittedSlipUri.value = null
     }
 
     fun submitWithdrawal() {

@@ -63,6 +63,45 @@ object DefaultAgentAccounts {
     )
 }
 
+object SriLankaBanks {
+    val allBanks: List<String> = listOf(
+        "Bank of Ceylon (BOC)",
+        "People's Bank",
+        "Commercial Bank of Ceylon",
+        "Hatton National Bank (HNB)",
+        "Sampath Bank",
+        "Seylan Bank",
+        "Nations Trust Bank (NTB)",
+        "National Development Bank (NDB)",
+        "DFCC Bank",
+        "Pan Asia Banking Corporation (PABC)",
+        "Union Bank of Colombo",
+        "Amana Bank",
+        "Cargills Bank",
+        "National Savings Bank (NSB)",
+        "Regional Development Bank (RDB)",
+        "Sanasa Development Bank (SDB Bank)",
+        "State Mortgage & Investment Bank (SMIB)",
+        "HDFC Bank Sri Lanka",
+        "Sri Lanka Savings Bank (SLSB)",
+        "Standard Chartered Bank (SCB)",
+        "HSBC Sri Lanka",
+        "Citibank Sri Lanka",
+        "Deutsche Bank AG (Sri Lanka)",
+        "Habib Bank",
+        "Indian Bank",
+        "Indian Overseas Bank",
+        "MCB Bank Sri Lanka",
+        "Public Bank Berhad",
+        "Bank of China (Sri Lanka)",
+        "iPay Wallet",
+        "FriMi (NTB)",
+        "Genie (Dialog)",
+        "eZ Cash (Dialog)",
+        "mCash (Mobitel)"
+    )
+}
+
 @Keep
 @IgnoreExtraProperties
 data class FirestoreTransaction(
@@ -79,6 +118,7 @@ data class FirestoreTransaction(
     val agentAccountLabel: String? = null,
     val agentAccountNumber: String? = null,
     val receiptKey: String? = null,
+    val slipImageBase64: String? = null,
     val securityCode: String? = null,
     val bank: String? = null,
     val accountNumber: String? = null,

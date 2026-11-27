@@ -6,13 +6,17 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -21,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fastcash.R
+import com.example.fastcash.data.model.SriLankaBanks
 import com.example.fastcash.data.model.TransactionStatus
 import com.example.fastcash.ui.components.TimelineView
 import com.example.fastcash.ui.components.WhatsAppHelper
@@ -50,18 +55,9 @@ fun WithdrawScreen(
     val appConfig by viewModel.appConfig.collectAsState()
 
     val context = LocalContext.current
-    var showBankMenu by remember { mutableStateOf(false) }
-    val bankList = listOf(
-        "Bank of Ceylon (BOC)",
-        "People's Bank",
-        "Commercial Bank of Ceylon",
-        "Sampath Bank",
-        "Hatton National Bank (HNB)",
-        "Seylan Bank",
-        "National Savings Bank (NSB)",
-        "Nations Trust Bank (NTB)",
-        "iPay Wallet"
-    )
+    var showBankPicker by remember { mutableStateOf(false) }
+    var bankSearchQuery by remember { mutableStateOf("") }
+    val bankList = SriLankaBanks.allBanks
 
     if (successRef != null) {
         Box(
@@ -156,7 +152,7 @@ fun WithdrawScreen(
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Chat,
+                            imageVector = Icons.AutoMirrored.Filled.Chat,
                             contentDescription = "Send to WhatsApp",
                             tint = DarkBackground,
                             modifier = Modifier.size(18.dp)
@@ -315,52 +311,42 @@ fun WithdrawScreen(
                         )
                     }
 
-                    // Bank Selector
+                    // All Sri Lankan Banks Selector (Searchable Picker)
                     Column {
                         Text(
-                            text = labels.getString(R.string.tx_bank),
+                            text = if (language == "si") "ලංකාවේ බැංකුව තෝරන්න (ALL SRI LANKAN BANKS)" else labels.getString(R.string.tx_bank),
                             style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
                         Spacer(modifier = Modifier.height(6.dp))
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            OutlinedTextField(
-                                value = bank,
-                                onValueChange = {},
-                                readOnly = true,
-                                trailingIcon = {
-                                    IconButton(onClick = { showBankMenu = !showBankMenu }) {
-                                        Icon(
-                                            imageVector = Icons.Default.ArrowDropDown,
-                                            contentDescription = "Select Bank",
-                                            tint = NeonCyan
-                                        )
-                                    }
-                                },
+                        Surface(
+                            onClick = { showBankPicker = true },
+                            color = DarkSurface,
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.dp, NeonCyan.copy(alpha = 0.5f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 52.dp)
+                                .testTag("withdraw_bank_picker_btn")
+                        ) {
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { showBankMenu = true },
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = NeonCyan,
-                                    unfocusedBorderColor = Color(0x33FFFFFF),
-                                    focusedTextColor = TextPrimary,
-                                    unfocusedTextColor = TextPrimary
-                                )
-                            )
-                            DropdownMenu(
-                                expanded = showBankMenu,
-                                onDismissRequest = { showBankMenu = false },
-                                modifier = Modifier.background(DarkCard)
+                                    .padding(horizontal = 14.dp, vertical = 14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                bankList.forEach { item ->
-                                    DropdownMenuItem(
-                                        text = { Text(item, color = TextPrimary) },
-                                        onClick = {
-                                            viewModel.withdrawBank.value = item
-                                            showBankMenu = false
-                                        }
-                                    )
-                                }
+                                Text(
+                                    text = bank,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = TextPrimary,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Select Sri Lankan Bank",
+                                    tint = NeonCyan
+                                )
                             }
                         }
                     }
@@ -455,11 +441,103 @@ fun WithdrawScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
-                                imageVector = Icons.Default.ArrowForward,
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = null,
                                 tint = TextPrimary,
                                 modifier = Modifier.size(16.dp)
                             )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showBankPicker) {
+        val filteredBanks = remember(bankSearchQuery, bankList) {
+            val q = bankSearchQuery.trim()
+            if (q.isBlank()) bankList else bankList.filter { it.contains(q, ignoreCase = true) }
+        }
+        ModalBottomSheet(
+            onDismissRequest = {
+                showBankPicker = false
+                bankSearchQuery = ""
+            },
+            containerColor = DarkCard
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 24.dp)
+            ) {
+                Text(
+                    text = if (language == "si") "ශ්‍රී ලංකාවේ බැංකු සහ මුදල් පසුම්බි (${bankList.size})" else "SRI LANKA BANKS & WALLETS (${bankList.size})",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = NeonCyan
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = bankSearchQuery,
+                    onValueChange = { bankSearchQuery = it },
+                    placeholder = { Text("Search bank (BOC, HNB, NDB, RDB, Sampath...)", color = TextMuted) },
+                    leadingIcon = {
+                        Icon(Icons.Default.Search, contentDescription = null, tint = NeonCyan)
+                    },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("withdraw_bank_search_input"),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = Color(0x33FFFFFF),
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    )
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.65f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(filteredBanks) { item ->
+                        val isSelected = item == bank
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (isSelected) NeonPink.copy(alpha = 0.16f) else DarkSurface)
+                                .border(
+                                    1.dp,
+                                    if (isSelected) NeonPink else Color(0x22FFFFFF),
+                                    RoundedCornerShape(6.dp)
+                                )
+                                .clickable {
+                                    viewModel.withdrawBank.value = item
+                                    showBankPicker = false
+                                    bankSearchQuery = ""
+                                }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = item,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (isSelected) NeonPink else TextPrimary,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = NeonPink,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
                 }

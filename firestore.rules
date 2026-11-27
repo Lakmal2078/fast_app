@@ -46,6 +46,7 @@ service cloud.firestore {
              (!('agentAccountLabel' in data) || (data.agentAccountLabel is string && data.agentAccountLabel.size() <= 140)) &&
              (!('agentAccountNumber' in data) || (data.agentAccountNumber is string && data.agentAccountNumber.size() <= 64)) &&
              (!('receiptKey' in data) || (data.receiptKey is string && data.receiptKey.size() <= 128)) &&
+             (!('slipImageBase64' in data) || (data.slipImageBase64 is string && data.slipImageBase64.size() <= 350000)) &&
              (!('securityCode' in data) || (data.securityCode is string && data.securityCode.size() <= 128)) &&
              (!('bank' in data) || (data.bank is string && data.bank.size() <= 100)) &&
              (!('accountNumber' in data) || (data.accountNumber is string && data.accountNumber.size() <= 64)) &&
@@ -96,8 +97,8 @@ service cloud.firestore {
                        incoming().keys().hasOnly([
                          'userId', 'userEmail', 'userName', 'reference', 'type', 'status',
                          'amount', 'playerId', 'paymentMethod', 'agentAccountLabel',
-                         'agentAccountNumber', 'receiptKey', 'securityCode', 'bank',
-                         'accountNumber', 'contactNumber', 'createdAt', 'updatedAt'
+                         'agentAccountNumber', 'receiptKey', 'slipImageBase64', 'securityCode',
+                         'bank', 'accountNumber', 'contactNumber', 'createdAt', 'updatedAt'
                        ]) &&
                        isValidTransaction(incoming());
 

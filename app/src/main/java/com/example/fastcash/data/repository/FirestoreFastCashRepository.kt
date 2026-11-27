@@ -202,7 +202,8 @@ class FirestoreFastCashRepository(
         playerId: String,
         paymentMethod: String,
         destination: AgentDestinationAccount?,
-        receiptKey: String?
+        receiptKey: String?,
+        slipImageBase64: String? = null
     ): Result<String> {
         var docPath = "transactions"
         return try {
@@ -212,6 +213,10 @@ class FirestoreFastCashRepository(
             require(amount in 1000L..500000L) { "Amount must be between LKR 1,000 and 500,000" }
             require(playerId.trim().length in 4..64) { "Invalid 1xBet Player ID" }
             require(paymentMethod.trim().length in 1..64) { "Invalid payment method" }
+            val cleanSlip = slipImageBase64?.takeIf { it.isNotBlank() }
+            if (cleanSlip != null) {
+                require(cleanSlip.length <= 350000) { "Slip image exceeds allowed size" }
+            }
 
             val reference = "TXN-" + UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
             val txDoc = db.collection("transactions").document()
@@ -230,6 +235,7 @@ class FirestoreFastCashRepository(
                 "agentAccountLabel" to destination?.displayLabel?.take(140),
                 "agentAccountNumber" to destination?.accountNumber?.take(64),
                 "receiptKey" to receiptKey?.trim()?.take(128)?.takeIf { it.isNotBlank() },
+                "slipImageBase64" to cleanSlip,
                 "createdAt" to FieldValue.serverTimestamp(),
                 "updatedAt" to FieldValue.serverTimestamp()
             ).filterValues { it != null } as Map<String, Any>

@@ -1,6 +1,7 @@
 package com.example.fastcash.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,7 +15,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -23,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fastcash.R
 import com.example.fastcash.data.model.TransactionStatus
+import com.example.fastcash.ui.components.SlipImageHelper
 import com.example.fastcash.ui.components.StatusPill
 import com.example.fastcash.ui.components.TimelineView
 import com.example.fastcash.ui.components.transactionLabels
@@ -217,6 +221,26 @@ fun TrackScreen(
                                     "${tx.bank} (Acc: ${tx.accountNumber ?: ""})",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = TextPrimary
+                                )
+                            }
+
+                            val slipBitmap = remember(tx.id, tx.slipImageBase64) {
+                                SlipImageHelper.decodeBase64ToImageBitmap(tx.slipImageBase64)
+                            }
+                            if (slipBitmap != null) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text("UPLOADED SLIP", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Image(
+                                    bitmap = slipBitmap,
+                                    contentDescription = "Uploaded deposit slip",
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 180.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(DarkSurface)
+                                        .border(1.dp, NeonCyan.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
                                 )
                             }
 

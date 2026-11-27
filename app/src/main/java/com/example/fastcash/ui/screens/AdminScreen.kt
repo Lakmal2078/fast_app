@@ -2,13 +2,16 @@ package com.example.fastcash.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -17,12 +20,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fastcash.data.model.FirestoreTransaction
 import com.example.fastcash.data.model.TransactionStatus
+import com.example.fastcash.ui.components.SlipImageHelper
 import com.example.fastcash.ui.components.StatusPill
 import com.example.fastcash.ui.theme.*
 import com.example.fastcash.ui.viewmodel.FastCashViewModel
@@ -309,7 +314,13 @@ fun AdminScreen(
                 )
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val slipBitmap = remember(tx.id, tx.slipImageBase64) {
+                    SlipImageHelper.decodeBase64ToImageBitmap(tx.slipImageBase64)
+                }
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(
                         text = "${tx.type} · LKR %,d · Player ID: ${tx.playerId}".format(tx.amount),
                         style = MaterialTheme.typography.bodyMedium,
@@ -329,6 +340,24 @@ fun AdminScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary,
                             fontSize = 12.sp
+                        )
+                    }
+                    if (slipBitmap != null) {
+                        Text(
+                            text = "ATTACHED DEPOSIT SLIP",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = StatusGreen
+                        )
+                        Image(
+                            bitmap = slipBitmap,
+                            contentDescription = "Customer uploaded deposit slip",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 220.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(DarkSurface)
+                                .border(1.dp, StatusGreen.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
                         )
                     }
                     if (!tx.securityCode.isNullOrBlank()) {
@@ -509,6 +538,15 @@ fun AdminRequestCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = NeonCyan
                 )
+                if (!transaction.slipImageBase64.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "SLIP PHOTO ATTACHED",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = StatusGreen,
+                        fontSize = 9.sp
+                    )
+                }
             }
             Column(horizontalAlignment = Alignment.End) {
                 StatusPill(status = transaction.parsedStatus)

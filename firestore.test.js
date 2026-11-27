@@ -166,6 +166,38 @@ test("Player can create PENDING deposit and withdrawal, read own transactions, a
       updatedAt: new Date(Date.now() + 60000),
     })
   );
+
+  // Deposit with valid compressed slipImageBase64 succeeds
+  await assertSucceeds(
+    alice.collection("transactions").doc("tx_dep_slip").set({
+      userId: ALICE_UID,
+      reference: "TXN-SLIP01",
+      type: "DEPOSIT",
+      status: "PENDING",
+      amount: 10000,
+      playerId: "184920412",
+      paymentMethod: "Bank transfer",
+      slipImageBase64: "/9j/4AAQSkZJRgABAQAAAQABAAD/",
+      createdAt: now,
+      updatedAt: now,
+    })
+  );
+
+  // Oversized slipImageBase64 (> 350000 chars) rejected
+  await assertFails(
+    alice.collection("transactions").doc("tx_dep_bigslip").set({
+      userId: ALICE_UID,
+      reference: "TXN-BIGSLIP",
+      type: "DEPOSIT",
+      status: "PENDING",
+      amount: 10000,
+      playerId: "184920412",
+      paymentMethod: "Bank transfer",
+      slipImageBase64: "A".repeat(360000),
+      createdAt: now,
+      updatedAt: now,
+    })
+  );
 });
 
 test("Cross-user isolation: Bob cannot read Alice's transactions or notifications", async () => {

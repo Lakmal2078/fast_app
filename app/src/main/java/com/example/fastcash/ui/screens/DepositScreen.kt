@@ -1,7 +1,11 @@
 package com.example.fastcash.ui.screens
 
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,6 +13,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -26,12 +33,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fastcash.R
 import com.example.fastcash.data.model.TransactionStatus
+import com.example.fastcash.ui.components.SlipImageHelper
 import com.example.fastcash.ui.components.TimelineView
 import com.example.fastcash.ui.components.WhatsAppHelper
 import com.example.fastcash.ui.components.transactionLabels
 import com.example.fastcash.ui.theme.*
 import com.example.fastcash.ui.viewmodel.FastCashViewModel
 import com.example.fastcash.ui.viewmodel.ScreenDestination
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,6 +57,10 @@ fun DepositScreen(
     val isSubmitting by viewModel.depositIsSubmitting.collectAsState()
     val successRef by viewModel.depositSuccessRef.collectAsState()
     val whatsappMsg by viewModel.depositWhatsappMessage.collectAsState()
+    val submittedSlipUri by viewModel.depositSubmittedSlipUri.collectAsState()
+    val slipBase64 by viewModel.depositSlipBase64.collectAsState()
+    val slipSizeKb by viewModel.depositSlipSizeKb.collectAsState()
+    val isProcessingSlip by viewModel.depositIsProcessingSlip.collectAsState()
     val error by viewModel.depositError.collectAsState()
     val selectedAccount by viewModel.selectedAgentAccount.collectAsState()
     val appConfig by viewModel.appConfig.collectAsState()
@@ -55,6 +68,35 @@ fun DepositScreen(
 
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
+
+    val slipPreviewBitmap = remember(slipBase64) {
+        SlipImageHelper.decodeBase64ToImageBitmap(slipBase64)
+    }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.depositIsProcessingSlip.value = true
+            scope.launch {
+                SlipImageHelper.processPickedSlip(context, uri).fold(
+                    onSuccess = { processed ->
+                        viewModel.setProcessedSlip(processed)
+                        Toast.makeText(
+                            context,
+                            "Slip attached (${processed.sizeKb} KB)",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    onFailure = { err ->
+                        viewModel.depositError.value = err.localizedMessage ?: "Failed to attach slip image"
+                    }
+                )
+                viewModel.depositIsProcessingSlip.value = false
+            }
+        }
+    }
 
     if (successRef != null) {
         Box(
@@ -149,7 +191,7 @@ fun DepositScreen(
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Chat,
+                            imageVector = Icons.AutoMirrored.Filled.Chat,
                             contentDescription = "Send to WhatsApp",
                             tint = DarkBackground,
                             modifier = Modifier.size(18.dp)
@@ -160,6 +202,41 @@ fun DepositScreen(
                             color = DarkBackground,
                             style = MaterialTheme.typography.labelLarge
                         )
+                    }
+
+                    if (submittedSlipUri != null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Button(
+                            onClick = {
+                                submittedSlipUri?.let { uri ->
+                                    WhatsAppHelper.shareImageToWhatsApp(
+                                        context = context,
+                                        imageUri = uri,
+                                        message = whatsappMsg
+                                    )
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("deposit_share_slip_whatsapp_btn"),
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonPink),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Image,
+                                contentDescription = "Share Slip Image",
+                                tint = TextPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (language == "si") "ස්ලිප් ෆොටෝ එක WHATSAPP වෙත යවන්න" else "SHARE SLIP PHOTO TO WHATSAPP",
+                                color = TextPrimary,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -506,6 +583,138 @@ fun DepositScreen(
                         )
                     }
 
+                    // Bank Slip Photo Upload (Zero-Permission Photo Picker)
+                    Column {
+                        Text(
+                            text = if (language == "si") "බැංකු ස්ලිප් ඡායාරූපය (SLIP UPLOAD)" else "DEPOSIT SLIP / SCREENSHOT UPLOAD",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = NeonPink
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(
+                                    1.dp,
+                                    if (slipPreviewBitmap != null) StatusGreen.copy(alpha = 0.6f) else Color(0x33FFFFFF),
+                                    RoundedCornerShape(6.dp)
+                                ),
+                            colors = CardDefaults.cardColors(containerColor = DarkSurface)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                if (slipPreviewBitmap != null) {
+                                    Image(
+                                        bitmap = slipPreviewBitmap,
+                                        contentDescription = "Uploaded deposit slip preview",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(170.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .border(1.dp, NeonCyan.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = StatusGreen,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = if (language == "si") {
+                                                    "ස්ලිප් එක සූදානම් (${slipSizeKb ?: 0} KB)"
+                                                } else {
+                                                    "Slip attached (${slipSizeKb ?: 0} KB)"
+                                                },
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = StatusGreen
+                                            )
+                                        }
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            TextButton(
+                                                onClick = {
+                                                    photoPickerLauncher.launch(
+                                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                    )
+                                                },
+                                                modifier = Modifier.heightIn(min = 48.dp)
+                                            ) {
+                                                Text("CHANGE", color = NeonCyan, fontSize = 11.sp)
+                                            }
+                                            TextButton(
+                                                onClick = { viewModel.clearSelectedSlip() },
+                                                modifier = Modifier.heightIn(min = 48.dp)
+                                            ) {
+                                                Text("REMOVE", color = StatusRed, fontSize = 11.sp)
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Text(
+                                        text = if (language == "si") {
+                                            "ඔබ මුදල් දැමූ බැංකු ස්ලිප් එකේ හෝ screenshot එකේ ඡායාරූපය upload කරන්න."
+                                        } else {
+                                            "Attach your bank transfer slip or iPay screenshot so the agent can verify faster."
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = TextMuted,
+                                        fontSize = 12.sp
+                                    )
+                                    OutlinedButton(
+                                        onClick = {
+                                            photoPickerLauncher.launch(
+                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                            )
+                                        },
+                                        enabled = !isProcessingSlip && !isSubmitting,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(48.dp)
+                                            .testTag("deposit_upload_slip_btn"),
+                                        border = BorderStroke(1.dp, NeonCyan),
+                                        shape = RoundedCornerShape(4.dp)
+                                    ) {
+                                        if (isProcessingSlip) {
+                                            CircularProgressIndicator(
+                                                color = NeonCyan,
+                                                modifier = Modifier.size(18.dp),
+                                                strokeWidth = 2.dp
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "PROCESSING IMAGE…",
+                                                color = NeonCyan,
+                                                style = MaterialTheme.typography.labelLarge
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Default.UploadFile,
+                                                contentDescription = "Upload Slip Photo",
+                                                tint = NeonCyan,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = if (language == "si") "ස්ලිප් ෆොටෝ එක UPLOAD කරන්න" else "UPLOAD SLIP PHOTO",
+                                                color = NeonCyan,
+                                                style = MaterialTheme.typography.labelLarge
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     if (error != null) {
                         Text(
                             text = error ?: "",
@@ -518,7 +727,7 @@ fun DepositScreen(
                     // Submit Button
                     Button(
                         onClick = { viewModel.submitDeposit() },
-                        enabled = !isSubmitting,
+                        enabled = !isSubmitting && !isProcessingSlip,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)
@@ -546,7 +755,7 @@ fun DepositScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
-                                imageVector = Icons.Default.ArrowForward,
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = null,
                                 tint = DarkBackground,
                                 modifier = Modifier.size(16.dp)
