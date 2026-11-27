@@ -53,4 +53,4 @@ jobs:
             adb install apks/androidTest/debug/app-debug-androidTest.apk
             adb shell am instrument -w -e stagingKey "$STAGING_KEY" com.aistudio.fastcash.lkapp.test/androidx.test.runner.AndroidJUnitRunner > instrument.log
             cat instrument.log
-            grep -F 'OK (2 tests)' instrument.log
+            grep -F 'OK (3 tests)' instrument.log

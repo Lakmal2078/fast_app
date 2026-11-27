@@ -1,5 +1,9 @@
 package com.example.fastcash.ui.screens
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.example.fastcash.ui.components.ScreenshotPicker
+import com.example.fastcash.ui.components.WhatsAppHandoff
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -41,6 +45,8 @@ fun WithdrawScreen(
     val accountNumber by viewModel.withdrawAccountNumber.collectAsState()
     val contactNumber by viewModel.withdrawContactNumber.collectAsState()
     val isSubmitting by viewModel.withdrawIsSubmitting.collectAsState()
+    val screenshot by viewModel.withdrawScreenshot.collectAsState()
+    val share by viewModel.withdrawWhatsApp.collectAsState()
     val successRef by viewModel.withdrawSuccessRef.collectAsState()
     val error by viewModel.withdrawError.collectAsState()
 
@@ -72,7 +78,7 @@ fun WithdrawScreen(
                 colors = CardDefaults.cardColors(containerColor = DarkCard)
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier.verticalScroll(rememberScrollState()).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(
@@ -127,6 +133,7 @@ fun WithdrawScreen(
 
                     Spacer(modifier = Modifier.height(18.dp))
                     TimelineView(status = TransactionStatus.PENDING)
+                    share?.let { request -> successRef?.let { ref -> WhatsAppHandoff(request, ref, language == "si") } }
 
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(
@@ -381,6 +388,10 @@ fun WithdrawScreen(
                             color = StatusRed,
                             fontSize = 12.sp
                         )
+                    }
+
+                    ScreenshotPicker(screenshot, !isSubmitting, language == "si") {
+                        viewModel.withdrawScreenshot.value = it
                     }
 
                     // Submit Button

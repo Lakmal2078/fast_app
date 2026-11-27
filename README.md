@@ -7,7 +7,7 @@ Official agent operations bridge between 1xBet player wallets and Fast Cash agen
 ## 🌟 Key Features
 
 - **Customer access** — Customer keys identify the owner of each request. The app shows that customer's history and profile.
-- **Deposit and withdrawal requests** — Submit LKR 1,000–500,000 and receive a reference after the server has saved the request. Deposit receipts use an optional text reference.
+- **Deposit and withdrawal requests** — Submit LKR 1,000–500,000 and receive a reference after the server has saved the request. Both forms accept a screenshot for WhatsApp. After saving the request, open WhatsApp, verify the agent number +94765865387, and tap Send. The attachment goes directly to WhatsApp. Withdrawal security codes are excluded from the caption.
 - **Tracking** — Search your references, see a status timeline, and review decisions.
 - **Languages** — English and Sinhala transaction labels, with English, Sinhala, and Tamil home content.
 - **Notifications** — View local confirmations for your signed-in account.

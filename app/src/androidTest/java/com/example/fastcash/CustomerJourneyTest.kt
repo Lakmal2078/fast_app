@@ -29,6 +29,7 @@ class CustomerJourneyTest {
         list.performScrollToNode(hasTestTag("deposit_submit_btn"))
         ui.onNodeWithTag("deposit_submit_btn").performClick()
         waitForTag("deposit_done_btn")
+        ui.onNodeWithTag("whatsapp_request").assertExists()
         val ref = ui.onNode(hasText("TXN-", substring = true)).fetchSemanticsNode()
             .config[androidx.compose.ui.semantics.SemanticsProperties.Text].single().text
         assertTrue(ref.startsWith("TXN-"))

@@ -1,6 +1,8 @@
 package com.example.fastcash.ui.viewmodel
 
 import android.app.Application
+import android.net.Uri
+import com.example.fastcash.ui.components.WhatsAppRequest
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fastcash.data.local.AppDatabase
@@ -141,6 +143,8 @@ class FastCashViewModel(application: Application, customer: SignedInCustomer) : 
     val depositPaymentMethod = MutableStateFlow("Bank transfer")
     val depositReceiptRef = MutableStateFlow("")
     val depositIsSubmitting = MutableStateFlow(false)
+    val depositScreenshot = MutableStateFlow<Uri?>(null)
+    val depositWhatsApp = MutableStateFlow<WhatsAppRequest?>(null)
     val depositSuccessRef = MutableStateFlow<String?>(null)
     val depositError = MutableStateFlow<String?>(null)
 
@@ -152,6 +156,8 @@ class FastCashViewModel(application: Application, customer: SignedInCustomer) : 
     val withdrawAccountNumber = MutableStateFlow("")
     val withdrawContactNumber = MutableStateFlow("")
     val withdrawIsSubmitting = MutableStateFlow(false)
+    val withdrawScreenshot = MutableStateFlow<Uri?>(null)
+    val withdrawWhatsApp = MutableStateFlow<WhatsAppRequest?>(null)
     val withdrawSuccessRef = MutableStateFlow<String?>(null)
     val withdrawError = MutableStateFlow<String?>(null)
 
@@ -213,16 +219,18 @@ class FastCashViewModel(application: Application, customer: SignedInCustomer) : 
             return
         }
 
+        val share = WhatsAppRequest("Deposit", depositPlayerId.value.trim(), amount, depositPaymentMethod.value, depositScreenshot.value)
         depositIsSubmitting.value = true
         depositError.value = null
         viewModelScope.launch {
             try {
                 val ref = repository.createDeposit(
                     amount = amount,
-                    playerId = depositPlayerId.value.trim(),
-                    paymentMethod = depositPaymentMethod.value,
+                    playerId = share.playerId,
+                    paymentMethod = share.method,
                     receiptKey = depositReceiptRef.value.trim().ifBlank { null }
                 )
+                depositWhatsApp.value = share
                 depositSuccessRef.value = ref
                 // Reset form
                 depositAmount.value = ""
@@ -238,6 +246,8 @@ class FastCashViewModel(application: Application, customer: SignedInCustomer) : 
     fun resetDepositSuccess() {
         depositSuccessRef.value?.let(repository::acknowledge)
         depositSuccessRef.value = null
+        depositScreenshot.value = null
+        depositWhatsApp.value = null
     }
 
     fun submitWithdrawal() {
@@ -260,18 +270,20 @@ class FastCashViewModel(application: Application, customer: SignedInCustomer) : 
             return
         }
 
+        val share = WhatsAppRequest("Withdrawal", withdrawPlayerId.value.trim(), amount, "Bank payout · ${withdrawBank.value}", withdrawScreenshot.value)
         withdrawIsSubmitting.value = true
         withdrawError.value = null
         viewModelScope.launch {
             try {
                 val ref = repository.createWithdrawal(
                     amount = amount,
-                    playerId = withdrawPlayerId.value.trim(),
+                    playerId = share.playerId,
                     securityCode = withdrawSecurityCode.value.trim(),
                     bank = withdrawBank.value,
                     accountNumber = withdrawAccountNumber.value.trim(),
                     contactNumber = withdrawContactNumber.value.trim()
                 )
+                withdrawWhatsApp.value = share
                 withdrawSuccessRef.value = ref
                 // Reset form
                 withdrawAmount.value = ""
@@ -289,6 +301,8 @@ class FastCashViewModel(application: Application, customer: SignedInCustomer) : 
     fun resetWithdrawalSuccess() {
         withdrawSuccessRef.value?.let(repository::acknowledge)
         withdrawSuccessRef.value = null
+        withdrawScreenshot.value = null
+        withdrawWhatsApp.value = null
     }
 
     val trackingMessage = MutableStateFlow<String?>(null)
