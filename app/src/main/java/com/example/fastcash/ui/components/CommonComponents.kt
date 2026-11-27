@@ -25,12 +25,27 @@ import com.example.fastcash.data.model.TransactionStatus
 import com.example.fastcash.ui.theme.*
 
 @Composable
-fun StatusPill(status: TransactionStatus, modifier: Modifier = Modifier) {
+fun StatusPill(
+    status: TransactionStatus,
+    modifier: Modifier = Modifier,
+    language: String = "si"
+) {
     val (color, bg) = when (status) {
         TransactionStatus.PENDING -> StatusYellow to Color(0x22FFD15C)
         TransactionStatus.PROCESSING -> NeonCyan to Color(0x2200E0FF)
         TransactionStatus.COMPLETED -> StatusGreen to Color(0x228CFF7B)
         TransactionStatus.REJECTED -> StatusRed to Color(0x22FF487A)
+    }
+
+    val label = if (language == "si") {
+        when (status) {
+            TransactionStatus.PENDING -> "පොරොත්තු"
+            TransactionStatus.PROCESSING -> "සැකසෙමින්"
+            TransactionStatus.COMPLETED -> "සම්පූර්ණයි"
+            TransactionStatus.REJECTED -> "ප්‍රතික්ෂේප"
+        }
+    } else {
+        status.name
     }
 
     Box(
@@ -43,7 +58,7 @@ fun StatusPill(status: TransactionStatus, modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = status.name,
+            text = label,
             style = MaterialTheme.typography.labelSmall,
             color = color,
             fontWeight = FontWeight.Bold
@@ -52,8 +67,16 @@ fun StatusPill(status: TransactionStatus, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun TimelineView(status: TransactionStatus, modifier: Modifier = Modifier) {
-    val stages = listOf("SUBMITTED", "PROCESSING", "COMPLETED")
+fun TimelineView(
+    status: TransactionStatus,
+    modifier: Modifier = Modifier,
+    language: String = "si"
+) {
+    val stages = if (language == "si") {
+        listOf("යැවූවා", "සැකසෙමින්", "සම්පූර්ණයි")
+    } else {
+        listOf("SUBMITTED", "PROCESSING", "COMPLETED")
+    }
     val currentStep = when (status) {
         TransactionStatus.PENDING -> 1
         TransactionStatus.PROCESSING -> 2

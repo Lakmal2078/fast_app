@@ -26,6 +26,14 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
+    - name: Restore google-services.json from secret if missing
+      env:
+        GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+      run: |
+        if [ ! -f app/google-services.json ] && [ -n "$GOOGLE_SERVICES_JSON" ]; then
+          printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
+        fi
+
     - name: Build and Test with Gradle
       run: ./gradlew assembleDebug testDebugUnitTest --stacktrace
 

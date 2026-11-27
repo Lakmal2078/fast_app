@@ -63,7 +63,7 @@ class FastCashViewModel(
 
     // Navigation & Global UI State
     val currentScreen = MutableStateFlow(ScreenDestination.HOME)
-    val selectedLanguage = MutableStateFlow("en")
+    val selectedLanguage = MutableStateFlow("si")
     val isNotificationsSheetOpen = MutableStateFlow(false)
     val isAdmin = MutableStateFlow(false)
     val isAdminMode = MutableStateFlow(false)
@@ -194,17 +194,17 @@ class FastCashViewModel(
         viewModelScope,
         SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
         LocalizedContent(
-            heroKicker = "OFFICIAL AGENT OPERATIONS // SRI LANKA",
-            heroTitle = "Your money moves at the speed of trust.",
-            heroText = "A clear, trackable bridge between your 1xBet wallet and Fast Cash agents. Copy bank details, submit once to WhatsApp, and receive live MobCash confirmations.",
-            deposit = "Start a deposit",
-            withdraw = "Request withdrawal",
-            track = "Track request",
-            live = "AGENTS ONLINE",
-            secure = "Protected by design",
-            steps = listOf("Copy bank or iPay details", "Submit & send to WhatsApp", "Get live MobCash app alert"),
-            support = "Need a human? WhatsApp support is available during service hours.",
-            responsible = "18+ only. Gambling should be entertainment. Never use borrowed money, and stop if it stops being fun."
+            heroKicker = "නිල නියෝජිත මෙහෙයුම් // ශ්‍රී ලංකාව",
+            heroTitle = "විශ්වාසය වගේ වේගයෙන් මුදල් ගමන් කරයි.",
+            heroText = "ඔබගේ 1xBet wallet එක සහ Fast Cash නියෝජිතයන් අතර පැහැදිලි, track කළ හැකි මාර්ගයක්. එක් වරක් submit කර WhatsApp වෙත යොමු කරන්න.",
+            deposit = "Deposit ආරම්භ කරන්න",
+            withdraw = "Withdrawal ඉල්ලන්න",
+            track = "Request track කරන්න",
+            live = "නියෝජිතයන් online",
+            secure = "ආරක්ෂාව මුලින්",
+            steps = listOf("ගිණුම තෝරා මුදල් දමන්න", "විස්තර WhatsApp වෙත යවන්න", "MobCash තහවුරු කිරීම බලන්න"),
+            support = "මිනිස් සහායක් අවශ්‍යද? සේවා වේලාවන්හි WhatsApp සහාය ඇත.",
+            responsible = "වයස 18+ සඳහා පමණි. සූදුව විනෝදාස්වාදයක් පමණක් විය යුතුය. ණයට ගත් මුදල් භාවිතා නොකරන්න."
         )
     )
 
@@ -409,12 +409,20 @@ class FastCashViewModel(
         }
         val cleanCode = withdrawSecurityCode.value.trim()
         if (cleanCode.isBlank()) {
-            withdrawError.value = "Please enter the 1xBet Cash withdrawal security code"
+            withdrawError.value = if (selectedLanguage.value == "si") {
+                "1xBet Cash මුදල් ලබාගැනීමේ ආරක්ෂක කේතය ඇතුළත් කරන්න."
+            } else {
+                "Please enter the 1xBet Cash withdrawal security code"
+            }
             return
         }
         val cleanAccount = withdrawAccountNumber.value.trim()
         if (cleanAccount.length < 6) {
-            withdrawError.value = "Please enter a valid bank account number"
+            withdrawError.value = if (selectedLanguage.value == "si") {
+                "වලංගු බැංකු ගිණුම් අංකයක් ඇතුළත් කරන්න."
+            } else {
+                "Please enter a valid bank account number"
+            }
             return
         }
         val bankName = withdrawBank.value
@@ -517,9 +525,9 @@ class FastCashViewModel(
         selectedAdminTx.value = tx
         adminRejectionReason.value = tx.rejectionReason ?: ""
         adminAgentNote.value = tx.agentNote ?: if (tx.type == "DEPOSIT") {
-            "MobCash deposit credited to 1xBet Player ID ${tx.playerId}"
+            "MobCash මගින් 1xBet ගිණුමට (ID: ${tx.playerId}) මුදල් එක් කළා."
         } else {
-            "Payout transferred to ${tx.bank ?: "your bank account"}"
+            "ඔබගේ ${tx.bank ?: "බැංකු"} ගිණුමට මුදල් බැර කළා."
         }
         adminActionError.value = null
     }

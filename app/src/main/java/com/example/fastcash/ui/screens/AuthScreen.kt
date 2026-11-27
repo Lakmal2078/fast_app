@@ -94,7 +94,7 @@ fun AuthScreen(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "ගිණුමට පිවිසෙන්න\nSign in to continue",
+                    text = "ගිණුමට පිවිසෙන්න",
                     style = MaterialTheme.typography.headlineMedium,
                     color = TextPrimary,
                     textAlign = TextAlign.Center
@@ -103,7 +103,7 @@ fun AuthScreen(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = "Sign in with Google to view agent bank/iPay accounts, submit deposit & withdrawal requests to WhatsApp, and receive real-time MobCash confirmation alerts.",
+                    text = "නියෝජිත බැංකු හා iPay ගිණුම් බැලීමට, තැන්පතු සහ මුදල් ආපසු ගැනීම් WhatsApp වෙත යැවීමට, සහ සජීවී MobCash දැනුම්දීම් ලබාගැනීමට Google ගිණුමෙන් පිවිසෙන්න.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary,
                     textAlign = TextAlign.Center
@@ -166,13 +166,13 @@ fun AuthScreen(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "SIGNING IN…",
+                            text = "පිවිසෙමින් පවතී…",
                             color = DarkBackground,
                             style = MaterialTheme.typography.labelLarge
                         )
                     } else {
                         Text(
-                            text = "SIGN IN WITH GOOGLE",
+                            text = "GOOGLE ගිණුමෙන් පිවිසෙන්න",
                             color = DarkBackground,
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold
@@ -194,7 +194,7 @@ fun AuthScreen(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "18+ Only · Real-time Agent Sync",
+                        text = "18+ සඳහා පමණි · සජීවී නියෝජිත සේවාව",
                         style = MaterialTheme.typography.labelSmall,
                         color = TextMuted
                     )
