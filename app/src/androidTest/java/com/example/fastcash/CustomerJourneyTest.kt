@@ -25,6 +25,8 @@ class CustomerJourneyTest {
         }
         field("deposit_amount_input", "1300")
         field("deposit_player_id_input", "TEST0001")
+        list.performScrollToNode(hasText("මුදල් තැන්පතුව"))
+        ui.onNodeWithText("මුදල් තැන්පතුව").performClick()
         field("deposit_receipt_ref_input", "STAGING-ONLY")
         list.performScrollToNode(hasTestTag("deposit_submit_btn"))
         ui.onNodeWithTag("deposit_submit_btn").performClick()

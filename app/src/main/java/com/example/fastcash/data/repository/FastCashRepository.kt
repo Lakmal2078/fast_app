@@ -44,6 +44,17 @@ class FastCashRepository(
 
     suspend fun syncFromRemote() {
         api.getTransactions().confirmed().forEach { cache(it) }
+        api.getNotifications().confirmed().forEach { event ->
+            val title = when {
+                event.status == "REJECTED" -> "ඉල්ලීම ප්‍රතික්ෂේප විය"
+                event.type == "DEPOSIT" -> "1xBet තැන්පතුව සම්පූර්ණයි"
+                else -> "මුදල් ආපසු ගෙවීම සම්පූර්ණයි"
+            }
+            notificationDao.insertDecisionOnce(NotificationEntity(
+                id = -event.id, title = title, createdAt = event.createdAt,
+                message = listOfNotNull(event.reference, "LKR ${event.amount}", event.rejectionReason).joinToString(" · ")
+            ))
+        }
         api.getAgentAccounts().confirmed().let { accounts ->
             settingsDao.replaceAccounts(accounts.map { AgentAccountEntity(
                 id = it.id, label = it.label, accountNumber = it.accountNumber,
@@ -81,8 +92,8 @@ class FastCashRepository(
         pending.edit().remove(slot).remove("ack-$reference").apply()
     }
 
-    suspend fun createDeposit(amount: Long, playerId: String, paymentMethod: String, receiptKey: String?): String {
-        val request = DepositRequest(amount, playerId, paymentMethod, receiptKey)
+    suspend fun createDeposit(amount: Long, playerId: String, paymentMethod: String, receiptKey: String?, destinationId: Long?): String {
+        val request = DepositRequest(amount, playerId, paymentMethod, receiptKey, destinationId)
         return submit("DEPOSIT", request) { api.createDeposit(it, request) }
     }
 

@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
 
-data class SignedInCustomer(val scope: String, val api: FastCashApiService)
+data class SignedInCustomer(val scope: String, val api: FastCashApiService, val isAgent: Boolean)
 
 class CustomerSessionModel : ViewModel() {
     val customer = MutableStateFlow<SignedInCustomer?>(null)
@@ -29,7 +29,7 @@ class CustomerSessionModel : ViewModel() {
                     val scope = MessageDigest.getInstance("SHA-256")
                         .digest("${BuildConfig.BACKEND_BASE_URL}|$id".toByteArray())
                         .joinToString("") { "%02x".format(it) }
-                    customer.value = SignedInCustomer(scope, api)
+                    customer.value = SignedInCustomer(scope, api, response.body()?.isAgent == true)
                 } else {
                     error.value = if (response.code() == 401) "ප්‍රවේශ යතුර පරීක්ෂා කරන්න." else "සේවාව ලබාගත නොහැක."
                 }

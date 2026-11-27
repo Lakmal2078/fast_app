@@ -1,5 +1,8 @@
 package com.example.fastcash
 
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
 import android.os.Bundle
 import android.content.Intent
 import androidx.lifecycle.viewmodel.initializer
@@ -74,7 +77,12 @@ class MainActivity : ComponentActivity() {
                 val selectedLanguage by viewModel.selectedLanguage.collectAsState()
                 val unreadCount by viewModel.unreadNotificationsCount.collectAsState()
                 val isNotifOpen by viewModel.isNotificationsSheetOpen.collectAsState()
-                val isAdminMode by viewModel.isAdminMode.collectAsState()
+                val isAdminMode = viewModel.isAgent
+                LaunchedEffect(customer) {
+                    lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                        while (true) { viewModel.refreshOnce(); delay(30000) }
+                    }
+                }
                 val allNotifs by viewModel.allNotifications.collectAsState()
 
                 // BackHandler to navigate back to Home
@@ -151,7 +159,7 @@ class MainActivity : ComponentActivity() {
                             ScreenDestination.DEPOSIT -> DepositScreen(viewModel = viewModel)
                             ScreenDestination.WITHDRAW -> WithdrawScreen(viewModel = viewModel)
                             ScreenDestination.TRACK -> TrackScreen(viewModel = viewModel)
-                            ScreenDestination.ADMIN -> AdminScreen(viewModel = viewModel)
+                            ScreenDestination.ADMIN -> if (isAdminMode) AgentDesk(viewModel) else Unit
                             ScreenDestination.SUPPORT -> SupportScreen(viewModel = viewModel)
                         }
                     }

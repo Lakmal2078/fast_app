@@ -38,6 +38,9 @@ interface TransactionDao {
 
 @Dao
 interface NotificationDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertDecisionOnce(notification: NotificationEntity): Long
+
     @Query("SELECT * FROM notifications ORDER BY createdAt DESC")
     fun getAllNotifications(): Flow<List<NotificationEntity>>
 

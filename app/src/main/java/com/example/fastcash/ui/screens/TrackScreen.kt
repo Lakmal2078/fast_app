@@ -124,7 +124,7 @@ fun TrackScreen(
         if (isSearched) {
             item {
                 if (trackedResult != null) {
-                    val tx = trackedResult!!
+                    val tx = allTransactions.find { it.reference == trackedResult?.reference } ?: trackedResult!!
                     val dateStr = remember(tx.createdAt) {
                         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
                         sdf.format(Date(tx.createdAt))

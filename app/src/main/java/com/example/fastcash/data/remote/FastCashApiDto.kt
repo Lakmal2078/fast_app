@@ -13,7 +13,8 @@ data class DepositRequest(
     val amount: Long,
     val playerId: String,
     val paymentMethod: String = "Bank transfer",
-    val receiptKey: String? = null
+    val receiptKey: String? = null,
+    val destinationId: Long? = null
 )
 
 data class WithdrawalRequest(
@@ -25,7 +26,7 @@ data class WithdrawalRequest(
     val contactNumber: String? = null
 )
 
-data class CustomerSession(val customerId: String)
+data class CustomerSession(val customerId: String, val isAgent: Boolean = false)
 
 data class TransactionDto(
     val id: Long = 0,
@@ -95,3 +96,11 @@ data class SlipVerifyResponse(
     val data: ExtractedSlipData,
     val timestamp: Long
 )
+
+
+data class AgentBankInput(val bank: String, val holder: String, val number: String)
+data class AgentReview(val reference: String, val playerId: String, val amount: Long, val status: String,
+    val type: String, val paymentMethod: String, val destination: String?, val receiptKey: String?,
+    val bank: String?, val accountNumber: String?, val securityCode: String?)
+data class PlayerDecision(val id: Long, val reference: String, val type: String, val amount: Long,
+    val status: String, val rejectionReason: String?, val createdAt: Long)

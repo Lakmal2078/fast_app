@@ -52,6 +52,7 @@ fun DepositScreen(
     val share by viewModel.depositWhatsApp.collectAsState()
     val successRef by viewModel.depositSuccessRef.collectAsState()
     val error by viewModel.depositError.collectAsState()
+    val selectedAccount by viewModel.depositAccount.collectAsState()
     val agentAccounts by viewModel.activeAgentAccounts.collectAsState()
 
     val context = LocalContext.current
@@ -218,6 +219,8 @@ fun DepositScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            RadioButton(selected = selectedAccount?.id == acc.id && paymentMethod == "Bank transfer",
+                                onClick = { viewModel.depositAccount.value = acc; viewModel.depositPaymentMethod.value = "Bank transfer" })
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = acc.label,
@@ -234,6 +237,8 @@ fun DepositScreen(
                             }
                             IconButton(
                                 onClick = {
+                                    viewModel.depositAccount.value = acc
+                                    viewModel.depositPaymentMethod.value = "Bank transfer"
                                     clipboard.setText(AnnotatedString(acc.accountNumber))
                                     Toast.makeText(context, "Account copied!", Toast.LENGTH_SHORT).show()
                                 }

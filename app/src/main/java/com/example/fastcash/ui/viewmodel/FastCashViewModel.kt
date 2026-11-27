@@ -51,7 +51,9 @@ class FastCashViewModel(application: Application, customer: SignedInCustomer) : 
     val currentScreen = MutableStateFlow(ScreenDestination.HOME)
     val selectedLanguage = MutableStateFlow("en")
     val isNotificationsSheetOpen = MutableStateFlow(false)
-    val isAdminMode = MutableStateFlow(false)
+    val isAgent = customer.isAgent
+    val agentApi = customer.api
+    val depositAccount = MutableStateFlow<AgentAccountEntity?>(null)
 
     // Data streams
     val allTransactions: StateFlow<List<TransactionEntity>> = repository.allTransactions
@@ -183,7 +185,6 @@ class FastCashViewModel(application: Application, customer: SignedInCustomer) : 
     val reconSummary = MutableStateFlow<String?>(null)
 
     init {
-        refreshData()
         // Pre-fill profile if available
         viewModelScope.launch {
             userProfile.collect { prof ->
@@ -219,7 +220,14 @@ class FastCashViewModel(application: Application, customer: SignedInCustomer) : 
             return
         }
 
-        val share = WhatsAppRequest("Deposit", depositPlayerId.value.trim(), amount, depositPaymentMethod.value, depositScreenshot.value)
+        val method = depositPaymentMethod.value
+        val destination = if (method == "Bank transfer") depositAccount.value else null
+        if (method == "Bank transfer" && (destination == null || activeAgentAccounts.value.none { it.id == destination.id })) {
+            depositError.value = "මුදල් යැවූ බැංකු ගිණුම තෝරන්න / Select the destination account."
+            return
+        }
+        val shareMethod = destination?.let { "$method · ${it.label} · …${it.accountNumber.takeLast(4)}" } ?: method
+        val share = WhatsAppRequest("Deposit", depositPlayerId.value.trim(), amount, shareMethod, depositScreenshot.value)
         depositIsSubmitting.value = true
         depositError.value = null
         viewModelScope.launch {
@@ -227,7 +235,8 @@ class FastCashViewModel(application: Application, customer: SignedInCustomer) : 
                 val ref = repository.createDeposit(
                     amount = amount,
                     playerId = share.playerId,
-                    paymentMethod = share.method,
+                    paymentMethod = method,
+                    destinationId = destination?.id,
                     receiptKey = depositReceiptRef.value.trim().ifBlank { null }
                 )
                 depositWhatsApp.value = share
@@ -404,8 +413,9 @@ class FastCashViewModel(application: Application, customer: SignedInCustomer) : 
     }
 
 
-    fun refreshData() {
-        viewModelScope.launch {
+    fun refreshData() { viewModelScope.launch { refreshOnce() } }
+
+    suspend fun refreshOnce() {
             try {
                 repository.syncFromRemote()
                 syncError.value = null
@@ -414,6 +424,5 @@ class FastCashViewModel(application: Application, customer: SignedInCustomer) : 
             } catch (e: Exception) {
                 syncError.value = "දත්ත යාවත්කාලීන කිරීමට නොහැකි විය."
             }
-        }
     }
 }

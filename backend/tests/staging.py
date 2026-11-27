@@ -50,5 +50,22 @@ for route in ("deposits", "withdrawals"):
         assert call("transactions/" + own["reference"], owner) == own
         call("transactions/" + foreign["reference"], owner, expected=404)
         assert not {"securityCode", "accountNumber", "contactNumber"} & own.keys()
+    agent = os.environ.get("STAGING_AGENT")
+    if agent:
+        target = "agent/requests/" + first["reference"]
+        call(target, alice, expected=403)
+        reviewed = call(target, agent)
+        assert reviewed["amount"] == body["amount"] and reviewed["playerId"] == body["playerId"]
+        for _ in range(2):
+            call(target + "/decision", agent, {"status":"COMPLETED"})
+        call(target + "/decision", agent, {"status":"REJECTED","reason":"test"}, expected=409)
+        assert call("transactions/" + first["reference"], alice)["status"] == "COMPLETED"
+        assert sum(n["reference"] == first["reference"] for n in call("notifications", alice)) == 1
+        assert all(n["reference"] != first["reference"] for n in call("notifications", bob))
+        rejected = "agent/requests/" + other["reference"] + "/decision"
+        call(rejected, agent, {"status":"REJECTED","reason":"Test rejection"})
+        assert any(n["reference"] == other["reference"] and n["rejectionReason"] == "Test rejection"
+                   for n in call("notifications", bob))
+        print("PASS: authorized agent decisions and scoped player notices for", route)
 call("transactions/TXN-" + str(uuid.uuid4()), alice, expected=404)
 print("PASS: two customers; deposit and withdrawal replay; ownership, unknown reference and response fields")
