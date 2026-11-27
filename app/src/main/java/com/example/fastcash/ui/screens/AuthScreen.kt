@@ -147,6 +147,7 @@ fun AuthScreen(
                             },
                             onAuthCancelled = {
                                 isLoading = false
+                                errorMessage = "Google Sign-In was cancelled or rejected. Please select a Google account to retry. (If running a locally or CI-built APK, ensure its SHA-1 fingerprint is registered in Firebase.)"
                             }
                         )
                     },

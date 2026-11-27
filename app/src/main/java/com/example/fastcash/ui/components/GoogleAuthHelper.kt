@@ -2,6 +2,7 @@ package com.example.fastcash.ui.components
 
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.util.Log
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
@@ -83,7 +84,7 @@ object GoogleAuthHelper {
             onAuthError("Google Sign-In configuration missing: default_web_client_id not found")
             return
         }
-        val activity = context as? Activity
+        val activity = context.findActivity()
         if (activity == null) {
             onAuthError("Unable to launch Google Sign-In from this context")
             return
@@ -133,5 +134,11 @@ object GoogleAuthHelper {
                 }
             }
         }
+    }
+
+    private tailrec fun Context.findActivity(): Activity? = when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
     }
 }
