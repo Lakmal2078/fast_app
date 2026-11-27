@@ -42,13 +42,13 @@ app.post('/api/slips/verify-ocr', async (c) => {
     const binaryData = Uint8Array.from(atob(base64Data), (char) => char.charCodeAt(0));
 
     let extractedData = {
-      bank: 'Bank of Ceylon (BOC)',
-      amount: body.expected_amount || 25000,
-      reference: body.expected_reference || 'TXN-7F42A',
-      date: new Date().toISOString().split('T')[0],
-      status: 'VERIFIED',
-      confidence: 0.95,
-      raw_text: 'BANK OF CEYLON TRANSFER SUCCESSFUL'
+      bank: 'Unknown',
+      amount: 0,
+      reference: '',
+      date: '',
+      status: 'UNMATCHED',
+      confidence: 0,
+      raw_text: ''
     };
 
     // If Cloudflare AI binding is available, execute Llama 3.2 Vision model
@@ -74,8 +74,8 @@ app.post('/api/slips/verify-ocr', async (c) => {
               amount: parsed.amount || extractedData.amount,
               reference: parsed.reference || extractedData.reference,
               date: parsed.date || extractedData.date,
-              status: parsed.is_valid_slip ? 'VERIFIED' : 'UNMATCHED',
-              confidence: 0.98,
+              status: 'UNMATCHED', // OCR alone cannot verify settlement
+              confidence: 0,
               raw_text: aiResponse.response
             };
           } catch (jsonErr) {

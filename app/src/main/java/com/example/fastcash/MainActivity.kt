@@ -70,12 +70,9 @@ class MainActivity : ComponentActivity() {
                             onOpenNotifications = { viewModel.isNotificationsSheetOpen.value = true },
                             isAdminMode = isAdminMode,
                             onToggleAdminMode = {
-                                viewModel.isAdminMode.value = !isAdminMode
-                                if (!isAdminMode) {
-                                    viewModel.navigateTo(ScreenDestination.ADMIN)
-                                } else if (currentScreen == ScreenDestination.ADMIN) {
-                                    viewModel.navigateTo(ScreenDestination.HOME)
-                                }
+                                // Disabled until server-side admin authorization is available.
+                                viewModel.isAdminMode.value = false
+                                if (currentScreen == ScreenDestination.ADMIN) viewModel.navigateTo(ScreenDestination.HOME)
                             }
                         )
                     },

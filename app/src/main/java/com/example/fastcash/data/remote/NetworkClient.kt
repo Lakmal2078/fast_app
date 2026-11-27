@@ -11,7 +11,7 @@ object NetworkClient {
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = if (BuildConfig.DEBUG) {
-            HttpLoggingInterceptor.Level.BODY
+            HttpLoggingInterceptor.Level.NONE
         } else {
             HttpLoggingInterceptor.Level.NONE
         }
