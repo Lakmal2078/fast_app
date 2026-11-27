@@ -10,10 +10,12 @@ import com.example.fastcash.data.model.FirestoreAppConfig
 import com.example.fastcash.data.model.FirestoreNotification
 import com.example.fastcash.data.model.FirestoreTransaction
 import com.example.fastcash.data.model.FirestoreUserProfile
+import com.example.fastcash.data.model.SavedBankPreset
 import com.example.fastcash.data.model.TransactionEntity
 import com.example.fastcash.data.model.TransactionStatus
 import com.example.fastcash.data.repository.FirestoreFastCashRepository
 import com.example.fastcash.ui.components.ProcessedSlip
+import com.example.fastcash.ui.components.SlipOcrResult
 import com.example.fastcash.ui.components.WhatsAppHelper
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
@@ -149,6 +151,21 @@ class FastCashViewModel(
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), null)
 
+    val savedPlayerIds: StateFlow<List<String>> = userProfile
+        .map { prof ->
+            val ids = prof?.savedPlayerIds.orEmpty().toMutableList()
+            val primary = prof?.playerId?.trim().orEmpty()
+            if (primary.length >= 4 && primary !in ids) {
+                ids.add(0, primary)
+            }
+            ids.distinct().take(10)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), emptyList())
+
+    val savedBankPresets: StateFlow<List<SavedBankPreset>> = userProfile
+        .map { it?.savedBankPresets.orEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), emptyList())
+
     // Language Content
     val content: StateFlow<LocalizedContent> = selectedLanguage.map { lang ->
         when (lang) {
@@ -218,12 +235,15 @@ class FastCashViewModel(
     val depositSlipBase64 = MutableStateFlow<String?>(null)
     val depositSlipShareUri = MutableStateFlow<Uri?>(null)
     val depositSlipSizeKb = MutableStateFlow<Int?>(null)
+    val depositOcrSummary = MutableStateFlow<String?>(null)
+    val depositOcrMatched = MutableStateFlow(false)
     val depositIsProcessingSlip = MutableStateFlow(false)
     val depositIsSubmitting = MutableStateFlow(false)
     val depositSuccessRef = MutableStateFlow<String?>(null)
     val depositWhatsappMessage = MutableStateFlow<String?>(null)
     val depositSubmittedSlipUri = MutableStateFlow<Uri?>(null)
     val depositError = MutableStateFlow<String?>(null)
+    val isSavingPreset = MutableStateFlow(false)
 
     // Withdrawal State
     val withdrawAmount = MutableStateFlow("")
@@ -324,21 +344,66 @@ class FastCashViewModel(
         pendingWhatsappAutoLaunch.value = null
     }
 
-    fun setProcessedSlip(slip: ProcessedSlip) {
+    fun setProcessedSlip(slip: ProcessedSlip, ocrResult: SlipOcrResult? = null) {
         depositSlipBase64.value = slip.base64
         depositSlipShareUri.value = slip.shareUri
         depositSlipSizeKb.value = slip.sizeKb
         depositError.value = null
+
+        if (ocrResult != null) {
+            ocrResult.detectedAccount?.let { selectAgentAccount(it) }
+                ?: ocrResult.detectedMethod?.let { depositPaymentMethod.value = it }
+            ocrResult.detectedAmount?.let { depositAmount.value = it.toString() }
+            ocrResult.detectedReference?.let { depositReceiptRef.value = it }
+
+            val detectedParts = buildList {
+                ocrResult.detectedAmount?.let { add("LKR $it") }
+                ocrResult.detectedAccount?.let { add(it.bankName) }
+                    ?: ocrResult.detectedMethod?.let { add(it) }
+                ocrResult.detectedReference?.let { add("Ref $it") }
+            }
+            if (detectedParts.isNotEmpty()) {
+                depositOcrMatched.value = true
+                depositOcrSummary.value = if (selectedLanguage.value == "si") {
+                    "ස්ලිප් එකෙන් Auto-fill කළා: ${detectedParts.joinToString(" · ")}"
+                } else {
+                    "Auto-filled from slip: ${detectedParts.joinToString(" · ")}"
+                }
+            } else {
+                depositOcrMatched.value = false
+                depositOcrSummary.value = if (selectedLanguage.value == "si") {
+                    "ස්ලිප් එක අමුණා ඇත. මුදල සහ ගිණුම පරීක්ෂා කරන්න."
+                } else {
+                    "Slip attached. Please verify amount & bank details below."
+                }
+            }
+        } else {
+            depositOcrMatched.value = false
+            depositOcrSummary.value = null
+        }
     }
 
     fun clearSelectedSlip() {
         depositSlipBase64.value = null
         depositSlipShareUri.value = null
         depositSlipSizeKb.value = null
+        depositOcrSummary.value = null
+        depositOcrMatched.value = false
+        depositReceiptRef.value = ""
     }
 
     fun submitDeposit() {
         if (depositIsSubmitting.value || depositIsProcessingSlip.value) return
+        val slipBase64 = depositSlipBase64.value
+        val slipUri = depositSlipShareUri.value
+        if (slipBase64.isNullOrBlank()) {
+            depositError.value = if (selectedLanguage.value == "si") {
+                "කරුණාකර බැංකු ස්ලිප් ෆොටෝ එක upload කරන්න."
+            } else {
+                "Please upload your deposit slip photo before submitting."
+            }
+            return
+        }
         val amount = depositAmount.value.trim().toLongOrNull()
         val minAmt = appConfig.value.minTransaction
         val maxAmt = appConfig.value.maxTransaction
@@ -363,8 +428,6 @@ class FastCashViewModel(
         val destination = selectedAgentAccount.value
         val method = depositPaymentMethod.value
         val receipt = depositReceiptRef.value.trim().ifBlank { null }
-        val slipBase64 = depositSlipBase64.value
-        val slipUri = depositSlipShareUri.value
 
         depositIsSubmitting.value = true
         depositError.value = null
@@ -379,6 +442,9 @@ class FastCashViewModel(
             )
             result.fold(
                 onSuccess = { ref ->
+                    if (cleanPlayerId !in savedPlayerIds.value) {
+                        savePlayerIdPreset(cleanPlayerId)
+                    }
                     val waMsg = WhatsAppHelper.buildDepositMessage(
                         reference = ref,
                         amount = amount,
@@ -388,7 +454,7 @@ class FastCashViewModel(
                         receiptRef = receipt,
                         customerName = profileName.value.ifBlank { currentUserName },
                         customerEmail = currentUserEmail,
-                        hasSlipImage = slipBase64 != null
+                        hasSlipImage = true
                     )
                     depositSuccessRef.value = ref
                     depositWhatsappMessage.value = waMsg
@@ -468,6 +534,15 @@ class FastCashViewModel(
             )
             result.fold(
                 onSuccess = { ref ->
+                    if (cleanPlayerId !in savedPlayerIds.value) {
+                        savePlayerIdPreset(cleanPlayerId)
+                    }
+                    if (savedBankPresets.value.none {
+                            it.bank.equals(bankName, ignoreCase = true) && it.accountNumber == cleanAccount
+                        }
+                    ) {
+                        saveBankPresetInternal(bankName, cleanAccount, contact.ifBlank { null })
+                    }
                     val waMsg = WhatsAppHelper.buildWithdrawalMessage(
                         reference = ref,
                         amount = amount,
@@ -493,6 +568,70 @@ class FastCashViewModel(
             )
             withdrawIsSubmitting.value = false
         }
+    }
+
+    fun savePlayerIdPreset(rawPlayerId: String) {
+        val cleanId = rawPlayerId.trim()
+        if (cleanId.length < 4) return
+        viewModelScope.launch {
+            isSavingPreset.value = true
+            repository.savePlayerIdPreset(
+                userId = currentUserId,
+                defaultName = profileName.value.ifBlank { currentUserName ?: "Player" },
+                newPlayerId = cleanId
+            )
+            isSavingPreset.value = false
+        }
+    }
+
+    fun removePlayerIdPreset(playerIdToRemove: String) {
+        viewModelScope.launch {
+            repository.removePlayerIdPreset(currentUserId, playerIdToRemove)
+        }
+    }
+
+    fun saveCurrentBankPreset() {
+        val cleanAccount = withdrawAccountNumber.value.trim()
+        val bankName = withdrawBank.value.trim()
+        val contact = withdrawContactNumber.value.trim().ifBlank { null }
+        if (bankName.isBlank() || cleanAccount.length < 6) {
+            withdrawError.value = if (selectedLanguage.value == "si") {
+                "සුරැකීමට පෙර වලංගු බැංකු ගිණුම් අංකයක් ඇතුළත් කරන්න."
+            } else {
+                "Enter a valid bank account number (min 6 digits) before saving."
+            }
+            return
+        }
+        withdrawError.value = null
+        saveBankPresetInternal(bankName, cleanAccount, contact)
+    }
+
+    private fun saveBankPresetInternal(bankName: String, accountNumber: String, contact: String?) {
+        viewModelScope.launch {
+            isSavingPreset.value = true
+            repository.saveBankPreset(
+                userId = currentUserId,
+                defaultName = profileName.value.ifBlank { currentUserName ?: "Player" },
+                defaultPlayerId = profilePlayerId.value.ifBlank { withdrawPlayerId.value.ifBlank { depositPlayerId.value } },
+                bank = bankName,
+                accountNumber = accountNumber,
+                contactNumber = contact
+            )
+            isSavingPreset.value = false
+        }
+    }
+
+    fun removeBankPreset(presetId: String) {
+        viewModelScope.launch {
+            repository.removeBankPreset(currentUserId, presetId)
+        }
+    }
+
+    fun applyBankPreset(preset: SavedBankPreset) {
+        withdrawBank.value = preset.bank
+        withdrawAccountNumber.value = preset.accountNumber
+        preset.contactNumber?.let { withdrawContactNumber.value = it }
+        withdrawError.value = null
     }
 
     fun resetWithdrawalSuccess() {

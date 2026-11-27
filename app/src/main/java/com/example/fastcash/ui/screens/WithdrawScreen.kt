@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.sp
 import com.example.fastcash.R
 import com.example.fastcash.data.model.SriLankaBanks
 import com.example.fastcash.data.model.TransactionStatus
+import com.example.fastcash.ui.components.SavedBankPresetsRow
+import com.example.fastcash.ui.components.SavedPlayerIdChipsRow
 import com.example.fastcash.ui.components.TimelineView
 import com.example.fastcash.ui.components.WhatsAppHelper
 import com.example.fastcash.ui.components.transactionLabels
@@ -53,6 +55,9 @@ fun WithdrawScreen(
     val whatsappMsg by viewModel.withdrawWhatsappMessage.collectAsState()
     val error by viewModel.withdrawError.collectAsState()
     val appConfig by viewModel.appConfig.collectAsState()
+    val savedPlayerIds by viewModel.savedPlayerIds.collectAsState()
+    val savedBankPresets by viewModel.savedBankPresets.collectAsState()
+    val isSavingPreset by viewModel.isSavingPreset.collectAsState()
 
     val context = LocalContext.current
     var showBankPicker by remember { mutableStateOf(false) }
@@ -261,8 +266,21 @@ fun WithdrawScreen(
                         )
                     }
 
-                    // 1xBet Player ID
+                    // 1xBet Player ID (with 1-tap Saved Chips)
                     Column {
+                        SavedPlayerIdChipsRow(
+                            savedPlayerIds = savedPlayerIds,
+                            currentPlayerId = playerId,
+                            language = language,
+                            accentColor = NeonPink,
+                            isSaving = isSavingPreset,
+                            onSelect = { viewModel.withdrawPlayerId.value = it },
+                            onSaveCurrent = { viewModel.savePlayerIdPreset(playerId) },
+                            onRemove = { viewModel.removePlayerIdPreset(it) }
+                        )
+                        if (savedPlayerIds.isNotEmpty() || playerId.trim().length >= 4) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
                         Text(
                             text = labels.getString(R.string.tx_player),
                             style = MaterialTheme.typography.labelSmall,
@@ -311,8 +329,21 @@ fun WithdrawScreen(
                         )
                     }
 
-                    // All Sri Lankan Banks Selector (Searchable Picker)
+                    // Saved Bank Presets (1-tap quick fill) + All Sri Lankan Banks Selector
                     Column {
+                        SavedBankPresetsRow(
+                            savedPresets = savedBankPresets,
+                            currentBank = bank,
+                            currentAccountNumber = accountNumber,
+                            language = language,
+                            isSaving = isSavingPreset,
+                            onSelect = { viewModel.applyBankPreset(it) },
+                            onSaveCurrent = { viewModel.saveCurrentBankPreset() },
+                            onRemove = { viewModel.removeBankPreset(it) }
+                        )
+                        if (savedBankPresets.isNotEmpty() || accountNumber.trim().length >= 6) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
                         Text(
                             text = if (language == "si") "ලංකාවේ බැංකුව තෝරන්න (ALL SRI LANKAN BANKS)" else labels.getString(R.string.tx_bank),
                             style = MaterialTheme.typography.labelSmall,

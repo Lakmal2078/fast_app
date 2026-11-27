@@ -33,7 +33,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fastcash.R
 import com.example.fastcash.data.model.TransactionStatus
+import com.example.fastcash.ui.components.SavedPlayerIdChipsRow
 import com.example.fastcash.ui.components.SlipImageHelper
+import com.example.fastcash.ui.components.SlipOcrHelper
 import com.example.fastcash.ui.components.TimelineView
 import com.example.fastcash.ui.components.WhatsAppHelper
 import com.example.fastcash.ui.components.transactionLabels
@@ -53,17 +55,20 @@ fun DepositScreen(
     val amount by viewModel.depositAmount.collectAsState()
     val playerId by viewModel.depositPlayerId.collectAsState()
     val paymentMethod by viewModel.depositPaymentMethod.collectAsState()
-    val receiptRef by viewModel.depositReceiptRef.collectAsState()
     val isSubmitting by viewModel.depositIsSubmitting.collectAsState()
     val successRef by viewModel.depositSuccessRef.collectAsState()
     val whatsappMsg by viewModel.depositWhatsappMessage.collectAsState()
     val submittedSlipUri by viewModel.depositSubmittedSlipUri.collectAsState()
     val slipBase64 by viewModel.depositSlipBase64.collectAsState()
     val slipSizeKb by viewModel.depositSlipSizeKb.collectAsState()
+    val ocrSummary by viewModel.depositOcrSummary.collectAsState()
+    val ocrMatched by viewModel.depositOcrMatched.collectAsState()
     val isProcessingSlip by viewModel.depositIsProcessingSlip.collectAsState()
     val error by viewModel.depositError.collectAsState()
     val selectedAccount by viewModel.selectedAgentAccount.collectAsState()
     val appConfig by viewModel.appConfig.collectAsState()
+    val savedPlayerIds by viewModel.savedPlayerIds.collectAsState()
+    val isSavingPreset by viewModel.isSavingPreset.collectAsState()
     val agentAccounts = viewModel.agentAccounts
 
     val context = LocalContext.current
@@ -79,13 +84,21 @@ fun DepositScreen(
     ) { uri ->
         if (uri != null) {
             viewModel.depositIsProcessingSlip.value = true
+            viewModel.depositError.value = null
             scope.launch {
                 SlipImageHelper.processPickedSlip(context, uri).fold(
                     onSuccess = { processed ->
-                        viewModel.setProcessedSlip(processed)
+                        val ocrResult = SlipOcrHelper.extractDepositDetails(
+                            jpegBytes = processed.jpegBytes,
+                            agentAccounts = agentAccounts,
+                            minAmount = appConfig.minTransaction,
+                            maxAmount = appConfig.maxTransaction
+                        )
+                        viewModel.setProcessedSlip(processed, ocrResult)
                         Toast.makeText(
                             context,
-                            "Slip attached (${processed.sizeKb} KB)",
+                            if (ocrResult.hasAnyMatch) "Slip scanned & auto-filled (${processed.sizeKb} KB)"
+                            else "Slip attached (${processed.sizeKb} KB)",
                             Toast.LENGTH_SHORT
                         ).show()
                     },
@@ -487,8 +500,21 @@ fun DepositScreen(
                         }
                     }
 
-                    // 1xBet Player ID
+                    // 1xBet Player ID (with 1-tap Saved Chips)
                     Column {
+                        SavedPlayerIdChipsRow(
+                            savedPlayerIds = savedPlayerIds,
+                            currentPlayerId = playerId,
+                            language = language,
+                            accentColor = NeonCyan,
+                            isSaving = isSavingPreset,
+                            onSelect = { viewModel.depositPlayerId.value = it },
+                            onSaveCurrent = { viewModel.savePlayerIdPreset(playerId) },
+                            onRemove = { viewModel.removePlayerIdPreset(it) }
+                        )
+                        if (savedPlayerIds.isNotEmpty() || playerId.trim().length >= 4) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
                         Text(
                             text = labels.getString(R.string.tx_player),
                             style = MaterialTheme.typography.labelSmall,
@@ -558,35 +584,14 @@ fun DepositScreen(
                         }
                     }
 
-                    // Bank Receipt Reference
+                    // Mandatory Bank Slip Photo Upload + On-Device OCR Auto-Fill
                     Column {
                         Text(
-                            text = labels.getString(R.string.tx_receipt),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextSecondary
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        OutlinedTextField(
-                            value = receiptRef,
-                            onValueChange = { viewModel.depositReceiptRef.value = it },
-                            placeholder = { Text("e.g. PB-FT-889102 / Time & Ref", color = TextMuted) },
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("deposit_receipt_ref_input"),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = NeonCyan,
-                                unfocusedBorderColor = Color(0x33FFFFFF),
-                                focusedTextColor = TextPrimary,
-                                unfocusedTextColor = TextPrimary
-                            )
-                        )
-                    }
-
-                    // Bank Slip Photo Upload (Zero-Permission Photo Picker)
-                    Column {
-                        Text(
-                            text = if (language == "si") "බැංකු ස්ලිප් ඡායාරූපය (SLIP UPLOAD)" else "DEPOSIT SLIP / SCREENSHOT UPLOAD",
+                            text = if (language == "si") {
+                                "බැංකු ස්ලිප් ඡායාරූපය (අනිවාර්යයි) *"
+                            } else {
+                                "DEPOSIT SLIP / SCREENSHOT UPLOAD *"
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = NeonPink
                         )
@@ -596,7 +601,8 @@ fun DepositScreen(
                                 .fillMaxWidth()
                                 .border(
                                     1.dp,
-                                    if (slipPreviewBitmap != null) StatusGreen.copy(alpha = 0.6f) else Color(0x33FFFFFF),
+                                    if (slipPreviewBitmap != null) StatusGreen.copy(alpha = 0.6f)
+                                    else NeonPink.copy(alpha = 0.45f),
                                     RoundedCornerShape(6.dp)
                                 ),
                             colors = CardDefaults.cardColors(containerColor = DarkSurface)
@@ -616,6 +622,35 @@ fun DepositScreen(
                                             .clip(RoundedCornerShape(6.dp))
                                             .border(1.dp, NeonCyan.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
                                     )
+
+                                    if (!ocrSummary.isNullOrBlank()) {
+                                        val pillColor = if (ocrMatched) StatusGreen else StatusYellow
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(pillColor.copy(alpha = 0.12f))
+                                                .border(1.dp, pillColor.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                                                .testTag("deposit_ocr_status_pill"),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = if (ocrMatched) Icons.Default.AutoAwesome else Icons.Default.Info,
+                                                contentDescription = null,
+                                                tint = pillColor,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = ocrSummary ?: "",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = pillColor,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
+
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -661,9 +696,9 @@ fun DepositScreen(
                                 } else {
                                     Text(
                                         text = if (language == "si") {
-                                            "ඔබ මුදල් දැමූ බැංකු ස්ලිප් එකේ හෝ screenshot එකේ ඡායාරූපය upload කරන්න."
+                                            "ඔබ මුදල් දැමූ බැංකු ස්ලිප් එක හෝ iPay screenshot එක upload කරන්න. මුදල සහ ගිණුම ස්වයංක්‍රීයව පිරවෙනු ඇත."
                                         } else {
-                                            "Attach your bank transfer slip or iPay screenshot so the agent can verify faster."
+                                            "Required: upload your bank transfer slip or iPay screenshot. Amount and bank details auto-fill automatically."
                                         },
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = TextMuted,
@@ -691,7 +726,7 @@ fun DepositScreen(
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Text(
-                                                text = "PROCESSING IMAGE…",
+                                                text = if (language == "si") "ස්ලිප් එක පරීක්ෂා කරමින්…" else "SCANNING SLIP DETAILS…",
                                                 color = NeonCyan,
                                                 style = MaterialTheme.typography.labelLarge
                                             )
@@ -722,17 +757,37 @@ fun DepositScreen(
                             color = StatusRed,
                             fontSize = 12.sp
                         )
+                    } else if (slipBase64 == null) {
+                        Text(
+                            text = if (language == "si") {
+                                "ඉල්ලීම යැවීමට පෙර බැංකු ස්ලිප් ෆොටෝ එක අනිවාර්යයෙන් upload කරන්න."
+                            } else {
+                                "Attach your deposit slip screenshot above to enable submission."
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextMuted,
+                            fontSize = 11.sp
+                        )
                     }
+
+                    val canSubmitDeposit = !isSubmitting && !isProcessingSlip &&
+                        slipBase64 != null &&
+                        (amount.trim().toLongOrNull() ?: 0L) in appConfig.minTransaction..appConfig.maxTransaction &&
+                        playerId.trim().length >= 4
 
                     // Submit Button
                     Button(
                         onClick = { viewModel.submitDeposit() },
-                        enabled = !isSubmitting && !isProcessingSlip,
+                        enabled = canSubmitDeposit,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)
                             .testTag("deposit_submit_btn"),
-                        colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = NeonCyan,
+                            disabledContainerColor = NeonCyan.copy(alpha = 0.25f),
+                            disabledContentColor = TextMuted
+                        ),
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         if (isSubmitting) {

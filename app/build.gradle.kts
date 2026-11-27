@@ -92,6 +92,7 @@ dependencies {
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services)
     implementation(libs.googleid)
+    implementation(libs.mlkit.text.recognition)
 
     // Networking & Serialization
     implementation(libs.retrofit)
@@ -101,6 +102,7 @@ dependencies {
     implementation(libs.gson)
 
     debugImplementation(libs.androidx.ui.tooling)
+    testImplementation("junit:junit:4.13.2")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.test:runner:1.6.2")

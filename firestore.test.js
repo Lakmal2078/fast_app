@@ -359,7 +359,23 @@ test("Player can manage own profile and read shared app_config", async () => {
     alice.collection("users").doc(ALICE_UID).update({
       name: "Kamal S.",
       playerId: "184920412",
+      savedPlayerIds: ["184920412", "1071114543"],
+      savedBankPresets: [
+        {
+          id: "preset_1",
+          bank: "Sampath Bank",
+          accountNumber: "105456146706",
+          contactNumber: "0771234567",
+        },
+      ],
       updatedAt: new Date(Date.now() - 1000),
+    })
+  );
+  // Reject oversized savedPlayerIds list (> 10 entries)
+  await assertFails(
+    alice.collection("users").doc(ALICE_UID).update({
+      savedPlayerIds: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"],
+      updatedAt: new Date(Date.now() - 500),
     })
   );
 

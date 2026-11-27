@@ -60,7 +60,9 @@ service cloud.firestore {
     function isValidUserProfile(data) {
       return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
              data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
-             data.playerId is string && data.playerId.size() >= 4 && data.playerId.size() <= 64 &&
+             data.playerId is string && data.playerId.size() <= 64 &&
+             (!('savedPlayerIds' in data) || (data.savedPlayerIds is list && data.savedPlayerIds.size() <= 10)) &&
+             (!('savedBankPresets' in data) || (data.savedBankPresets is list && data.savedBankPresets.size() <= 10)) &&
              data.createdAt is timestamp && data.createdAt <= request.time &&
              data.updatedAt is timestamp && data.updatedAt <= request.time;
     }
@@ -128,7 +130,7 @@ service cloud.firestore {
                        request.auth.uid == userId &&
                        incoming().userId == request.auth.uid &&
                        incoming().keys().hasAll(['userId', 'name', 'playerId', 'createdAt', 'updatedAt']) &&
-                       incoming().keys().hasOnly(['userId', 'name', 'playerId', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'name', 'playerId', 'savedPlayerIds', 'savedBankPresets', 'createdAt', 'updatedAt']) &&
                        isValidUserProfile(incoming());
 
       allow update: if isSignedIn() &&
@@ -137,7 +139,7 @@ service cloud.firestore {
                        isValidUserProfile(incoming()) &&
                        incoming().userId == existing().userId &&
                        incoming().createdAt == existing().createdAt &&
-                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'playerId', 'updatedAt']);
+                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'playerId', 'savedPlayerIds', 'savedBankPresets', 'updatedAt']);
 
       allow delete: if false;
 

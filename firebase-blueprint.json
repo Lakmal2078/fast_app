@@ -119,6 +119,24 @@
           "type": "string",
           "description": "Saved 1xBet Player ID."
         },
+        "savedPlayerIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Up to 10 frequently used 1xBet Player IDs for 1-tap selection."
+        },
+        "savedBankPresets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "bank": { "type": "string" },
+              "accountNumber": { "type": "string" },
+              "contactNumber": { "type": "string" }
+            }
+          },
+          "description": "Up to 10 saved withdrawal bank presets for 1-tap selection."
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time",

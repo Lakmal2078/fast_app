@@ -7,6 +7,7 @@ import com.example.fastcash.data.model.FirestoreAppConfig
 import com.example.fastcash.data.model.FirestoreNotification
 import com.example.fastcash.data.model.FirestoreTransaction
 import com.example.fastcash.data.model.FirestoreUserProfile
+import com.example.fastcash.data.model.SavedBankPreset
 import com.example.fastcash.data.model.TransactionStatus
 import com.example.fastcash.data.remote.OperationType
 import com.example.fastcash.data.remote.handleFirestoreError
@@ -214,9 +215,8 @@ class FirestoreFastCashRepository(
             require(playerId.trim().length in 4..64) { "Invalid 1xBet Player ID" }
             require(paymentMethod.trim().length in 1..64) { "Invalid payment method" }
             val cleanSlip = slipImageBase64?.takeIf { it.isNotBlank() }
-            if (cleanSlip != null) {
-                require(cleanSlip.length <= 350000) { "Slip image exceeds allowed size" }
-            }
+                ?: throw IllegalArgumentException("Deposit slip photo is required")
+            require(cleanSlip.length <= 350000) { "Slip image exceeds allowed size" }
 
             val reference = "TXN-" + UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
             val txDoc = db.collection("transactions").document()
@@ -475,18 +475,21 @@ class FirestoreFastCashRepository(
         return try {
             val uid = requireUserId()
             check(uid == userId) { "Signed-in user mismatch" }
-            val cleanName = name.trim()
-            val cleanPlayerId = playerId.trim()
+            val cleanName = name.trim().take(100)
+            val cleanPlayerId = playerId.trim().take(64)
             require(cleanName.length in 1..100) { "Name must be 1 to 100 characters" }
             require(cleanPlayerId.length in 4..64) { "Player ID must be at least 4 characters" }
 
             val docRef = db.collection("users").document(uid)
             val snapshot = docRef.get().await()
             if (snapshot.exists()) {
+                val existing = snapshot.toObject(FirestoreUserProfile::class.java)
+                val updatedIds = buildUpdatedPlayerIds(existing?.savedPlayerIds.orEmpty(), cleanPlayerId)
                 docRef.update(
                     mapOf(
                         "name" to cleanName,
                         "playerId" to cleanPlayerId,
+                        "savedPlayerIds" to updatedIds,
                         "updatedAt" to FieldValue.serverTimestamp()
                     )
                 ).await()
@@ -496,6 +499,8 @@ class FirestoreFastCashRepository(
                         "userId" to uid,
                         "name" to cleanName,
                         "playerId" to cleanPlayerId,
+                        "savedPlayerIds" to listOf(cleanPlayerId),
+                        "savedBankPresets" to emptyList<Map<String, Any>>(),
                         "createdAt" to FieldValue.serverTimestamp(),
                         "updatedAt" to FieldValue.serverTimestamp()
                     )
@@ -509,6 +514,186 @@ class FirestoreFastCashRepository(
             Result.failure(e)
         }
     }
+
+    suspend fun savePlayerIdPreset(
+        userId: String,
+        defaultName: String,
+        newPlayerId: String
+    ): Result<Unit> {
+        val path = "users/$userId"
+        return try {
+            val uid = requireUserId()
+            check(uid == userId) { "Signed-in user mismatch" }
+            val cleanId = newPlayerId.trim().take(64)
+            require(cleanId.length in 4..64) { "Player ID must be at least 4 characters" }
+            val fallbackName = defaultName.trim().take(100).ifBlank { "Player" }
+
+            val docRef = db.collection("users").document(uid)
+            val snapshot = docRef.get().await()
+            if (snapshot.exists()) {
+                val existing = snapshot.toObject(FirestoreUserProfile::class.java)
+                val updatedIds = buildUpdatedPlayerIds(existing?.savedPlayerIds.orEmpty(), cleanId)
+                val nextDefaultId = existing?.playerId?.takeIf { it.isNotBlank() } ?: cleanId
+                docRef.update(
+                    mapOf(
+                        "playerId" to nextDefaultId,
+                        "savedPlayerIds" to updatedIds,
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            } else {
+                docRef.set(
+                    mapOf(
+                        "userId" to uid,
+                        "name" to fallbackName,
+                        "playerId" to cleanId,
+                        "savedPlayerIds" to listOf(cleanId),
+                        "savedBankPresets" to emptyList<Map<String, Any>>(),
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            }
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.WRITE, path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun removePlayerIdPreset(userId: String, playerIdToRemove: String): Result<Unit> {
+        val path = "users/$userId"
+        return try {
+            val uid = requireUserId()
+            check(uid == userId) { "Signed-in user mismatch" }
+            val docRef = db.collection("users").document(uid)
+            val snapshot = docRef.get().await()
+            if (!snapshot.exists()) return Result.success(Unit)
+            val existing = snapshot.toObject(FirestoreUserProfile::class.java)
+            val updatedIds = existing?.savedPlayerIds.orEmpty().filterNot { it == playerIdToRemove }
+            docRef.update(
+                mapOf(
+                    "savedPlayerIds" to updatedIds,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun saveBankPreset(
+        userId: String,
+        defaultName: String,
+        defaultPlayerId: String,
+        bank: String,
+        accountNumber: String,
+        contactNumber: String?
+    ): Result<Unit> {
+        val path = "users/$userId"
+        return try {
+            val uid = requireUserId()
+            check(uid == userId) { "Signed-in user mismatch" }
+            val cleanBank = bank.trim().take(100)
+            val cleanAcc = accountNumber.trim().take(64)
+            val cleanContact = contactNumber?.trim()?.take(32)?.takeIf { it.isNotBlank() }
+            require(cleanBank.isNotEmpty()) { "Select a bank first" }
+            require(cleanAcc.length >= 6) { "Enter a valid bank account number (at least 6 digits)" }
+            val fallbackName = defaultName.trim().take(100).ifBlank { "Player" }
+            val fallbackPlayerId = defaultPlayerId.trim().take(64)
+
+            val newPreset = SavedBankPreset(
+                id = UUID.randomUUID().toString().replace("-", "").take(12),
+                bank = cleanBank,
+                accountNumber = cleanAcc,
+                contactNumber = cleanContact
+            )
+
+            val docRef = db.collection("users").document(uid)
+            val snapshot = docRef.get().await()
+            if (snapshot.exists()) {
+                val existing = snapshot.toObject(FirestoreUserProfile::class.java)
+                val updatedPresets = buildUpdatedBankPresets(existing?.savedBankPresets.orEmpty(), newPreset)
+                docRef.update(
+                    mapOf(
+                        "savedBankPresets" to updatedPresets.map { it.toFirestoreMap() },
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            } else {
+                val initialIds = if (fallbackPlayerId.length >= 4) listOf(fallbackPlayerId) else emptyList()
+                docRef.set(
+                    mapOf(
+                        "userId" to uid,
+                        "name" to fallbackName,
+                        "playerId" to fallbackPlayerId,
+                        "savedPlayerIds" to initialIds,
+                        "savedBankPresets" to listOf(newPreset.toFirestoreMap()),
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            }
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.WRITE, path)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun removeBankPreset(userId: String, presetId: String): Result<Unit> {
+        val path = "users/$userId"
+        return try {
+            val uid = requireUserId()
+            check(uid == userId) { "Signed-in user mismatch" }
+            val docRef = db.collection("users").document(uid)
+            val snapshot = docRef.get().await()
+            if (!snapshot.exists()) return Result.success(Unit)
+            val existing = snapshot.toObject(FirestoreUserProfile::class.java)
+            val updatedPresets = existing?.savedBankPresets.orEmpty().filterNot { it.id == presetId }
+            docRef.update(
+                mapOf(
+                    "savedBankPresets" to updatedPresets.map { it.toFirestoreMap() },
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, path)
+            Result.failure(e)
+        }
+    }
+
+    private fun buildUpdatedPlayerIds(existing: List<String>, newId: String): List<String> =
+        (listOf(newId) + existing.filterNot { it == newId }).take(10)
+
+    private fun buildUpdatedBankPresets(
+        existing: List<SavedBankPreset>,
+        newPreset: SavedBankPreset
+    ): List<SavedBankPreset> {
+        val deduplicated = existing.filterNot {
+            it.bank.equals(newPreset.bank, ignoreCase = true) &&
+                it.accountNumber == newPreset.accountNumber
+        }
+        return (listOf(newPreset) + deduplicated).take(10)
+    }
+
+    private fun SavedBankPreset.toFirestoreMap(): Map<String, Any> = mapOf(
+        "id" to id,
+        "bank" to bank,
+        "accountNumber" to accountNumber,
+        "contactNumber" to contactNumber?.takeIf { it.isNotBlank() }
+    ).filterValues { it != null } as Map<String, Any>
 
     suspend fun saveAppConfig(
         whatsappNumber: String,

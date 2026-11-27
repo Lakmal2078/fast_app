@@ -172,11 +172,22 @@ data class FirestoreNotification(
 
 @Keep
 @IgnoreExtraProperties
+data class SavedBankPreset(
+    val id: String = "",
+    val bank: String = "",
+    val accountNumber: String = "",
+    val contactNumber: String? = null
+)
+
+@Keep
+@IgnoreExtraProperties
 data class FirestoreUserProfile(
     @DocumentId val id: String = "",
     val userId: String = "",
     val name: String = "",
     val playerId: String = "",
+    val savedPlayerIds: List<String> = emptyList(),
+    val savedBankPresets: List<SavedBankPreset> = emptyList(),
     @ServerTimestamp val createdAt: Timestamp? = null,
     @ServerTimestamp val updatedAt: Timestamp? = null
 )
