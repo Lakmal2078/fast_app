@@ -239,6 +239,7 @@ class FastCashViewModel(
     val depositSlipSizeKb = MutableStateFlow<Int?>(null)
     val depositOcrSummary = MutableStateFlow<String?>(null)
     val depositOcrMatched = MutableStateFlow(false)
+    val depositOcrDetails = MutableStateFlow<SlipOcrResult?>(null)
     val depositIsProcessingSlip = MutableStateFlow(false)
     val depositIsSubmitting = MutableStateFlow(false)
     val depositSuccessRef = MutableStateFlow<String?>(null)
@@ -353,6 +354,7 @@ class FastCashViewModel(
     }
 
     fun setProcessedSlip(slip: ProcessedSlip, ocrResult: SlipOcrResult? = null) {
+        depositOcrDetails.value = ocrResult
         depositSlipBase64.value = slip.base64
         depositSlipShareUri.value = slip.shareUri
         depositSlipSizeKb.value = slip.sizeKb
@@ -392,6 +394,7 @@ class FastCashViewModel(
     }
 
     fun clearSelectedSlip() {
+        depositOcrDetails.value = null
         depositSlipBase64.value = null
         depositSlipShareUri.value = null
         depositSlipSizeKb.value = null
@@ -462,12 +465,13 @@ class FastCashViewModel(
                         receiptRef = receipt,
                         customerName = profileName.value.ifBlank { currentUserName },
                         customerEmail = currentUserEmail,
-                        hasSlipImage = true
+                        hasSlipImage = true,
+                        ocr = depositOcrDetails.value
                     )
                     depositSuccessRef.value = ref
                     depositWhatsappMessage.value = waMsg
                     depositSubmittedSlipUri.value = slipUri
-                    pendingWhatsappAutoLaunch.value = waMsg
+                    // The deposit screen alone shares the slip and caption once.
                     depositAmount.value = ""
                     depositReceiptRef.value = ""
                     clearSelectedSlip()

@@ -20,7 +20,8 @@ object WhatsAppHelper {
         receiptRef: String?,
         customerName: String?,
         customerEmail: String?,
-        hasSlipImage: Boolean = false
+        hasSlipImage: Boolean = false,
+        ocr: SlipOcrResult? = null
     ): String {
         val formattedAmount = NumberFormat.getNumberInstance(Locale.US).format(amount)
         val lines = mutableListOf(
@@ -36,8 +37,25 @@ object WhatsAppHelper {
         if (!receiptRef.isNullOrBlank()) {
             lines.add("Receipt / Slip Ref: $receiptRef")
         }
+        lines.add("FastCash Request Status: PENDING (agent verification required)")
+        if (ocr != null) {
+            lines.add("--- OCR SLIP DETAILS (UNVERIFIED) ---")
+            ocr.detectedMethod?.let { lines.add("Slip Method: $it") }
+            ocr.detectedAmount?.let { lines.add("Slip Amount: LKR ${NumberFormat.getNumberInstance(Locale.US).format(it)}") }
+            ocr.paymentStatus?.let { lines.add("Slip Status (not bank-confirmed): $it") }
+            ocr.transactionDate?.let { lines.add("Transaction Date: $it") }
+            ocr.detectedReference?.let { lines.add("Transaction ID: $it") }
+            ocr.transferType?.let { lines.add("Transfer Type: $it") }
+            ocr.sender?.let { lines.add("From: $it") }
+            ocr.senderBank?.let { lines.add("Sender Bank: $it") }
+            ocr.senderAccount?.let { lines.add("Sender Account: $it") }
+            ocr.recipientBank?.let { lines.add("To Bank: $it") }
+            ocr.recipientAccount?.let { lines.add("To Account: $it") }
+            ocr.recipientName?.let { lines.add("Recipient: $it") }
+            ocr.remarks?.let { lines.add("Remarks: $it") }
+        }
         if (hasSlipImage) {
-            lines.add("Bank Slip Photo: Uploaded in app (sharing image next)")
+            lines.add("Bank Slip Photo: Attached to WhatsApp share")
         }
         val customerLabel = listOfNotNull(
             customerName?.takeIf { it.isNotBlank() },

@@ -23,7 +23,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "BACKEND_BASE_URL", "\"https://fastcash-backend.agent-1xfast-srilanka.workers.dev/\"")
+        buildConfigField("String", "BACKEND_BASE_URL", "\"https://fastcash-backend.lakmal-gamage.workers.dev/\"")
     }
 
     signingConfigs {
@@ -60,7 +60,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "BACKEND_BASE_URL", "\"https://fastcash-backend.agent-1xfast-srilanka.workers.dev/\"")
+            buildConfigField("String", "BACKEND_BASE_URL", "\"https://fastcash-backend.lakmal-gamage.workers.dev/\"")
         }
     }
     compileOptions {

@@ -75,6 +75,7 @@ fun DepositScreen(
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     var lastAutoSharedRef by remember { mutableStateOf<String?>(null) }
+    var showResendConfirmation by remember { mutableStateOf(false) }
     var revealedAccountIds by remember { mutableStateOf(setOf<String>()) }
 
     LaunchedEffect(successRef, submittedSlipUri) {
@@ -193,9 +194,9 @@ fun DepositScreen(
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         text = if (language == "si") {
-                            "නියෝජිත WhatsApp වෙත විස්තර යවා MobCash තහවුරු කිරීම බලන්න."
+                            "WhatsApp බෙදාගැනීම විවෘත කර ඇත. WhatsApp තුළ Send කිරීම තහවුරු කර, ගනුදෙනුවේ තත්ත්වය බලන්න."
                         } else {
-                            "Send the pre-filled details to agent WhatsApp (${appConfig.whatsappNumber}). You will receive an in-app alert once MobCash credits your 1xBet account."
+                            "WhatsApp share opened. Confirm Send in WhatsApp, then track the request. Sending cannot be confirmed by this app."
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextMuted,
@@ -206,49 +207,16 @@ fun DepositScreen(
                     TimelineView(status = TransactionStatus.PENDING)
 
                     Spacer(modifier = Modifier.height(20.dp))
-                    Button(
-                        onClick = {
-                            val slipUri = submittedSlipUri
-                            if (slipUri != null) {
-                                WhatsAppHelper.shareImageToWhatsApp(
-                                    context = context,
-                                    imageUri = slipUri,
-                                    message = whatsappMsg,
-                                    phoneNumber = appConfig.whatsappNumber
-                                )
-                            } else {
-                                WhatsAppHelper.openWhatsApp(
-                                    context = context,
-                                    phoneNumber = appConfig.whatsappNumber,
-                                    message = whatsappMsg
-                                )
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .testTag("deposit_whatsapp_btn"),
-                        colors = ButtonDefaults.buttonColors(containerColor = StatusGreen),
-                        shape = RoundedCornerShape(4.dp)
+                    TextButton(
+                        onClick = { showResendConfirmation = true },
+                        modifier = Modifier.fillMaxWidth().testTag("deposit_whatsapp_btn")
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Chat,
-                            contentDescription = "Send to WhatsApp",
-                            tint = DarkBackground,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (submittedSlipUri != null) {
-                                if (language == "si") "ස්ලිප් සහ විස්තර WHATSAPP වෙත යවන්න" else "SEND SLIP & DETAILS TO WHATSAPP"
-                            } else {
-                                if (language == "si") "WHATSAPP වෙත යවන්න" else "SEND TO AGENT WHATSAPP"
-                            },
-                            color = DarkBackground,
-                            style = MaterialTheme.typography.labelLarge
+                            if (language == "si") "අවශ්‍ය නම් නැවත WhatsApp වෙත යොමු කරන්න" else "Resend via WhatsApp (optional)",
+                            color = TextSecondary,
+                            style = MaterialTheme.typography.labelSmall
                         )
                     }
-
                     Spacer(modifier = Modifier.height(10.dp))
                     OutlinedButton(
                         onClick = {
@@ -276,6 +244,25 @@ fun DepositScreen(
                     }
                 }
             }
+        }
+        if (showResendConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showResendConfirmation = false },
+                title = { Text("Resend deposit details?") },
+                text = { Text("This opens WhatsApp again. Check that the previous message was not already sent before resending.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showResendConfirmation = false
+                        val slipUri = submittedSlipUri
+                        if (slipUri != null) {
+                            WhatsAppHelper.shareImageToWhatsApp(context, slipUri, whatsappMsg, appConfig.whatsappNumber)
+                        } else {
+                            WhatsAppHelper.openWhatsApp(context, appConfig.whatsappNumber, whatsappMsg)
+                        }
+                    }) { Text("RESEND") }
+                },
+                dismissButton = { TextButton(onClick = { showResendConfirmation = false }) { Text("CANCEL") } }
+            )
         }
         return
     }
