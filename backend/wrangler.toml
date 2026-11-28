@@ -11,6 +11,22 @@ binding = "AI"
 binding = "KV"
 id = "31da2b8837344af192a6a1e2c345baa6"
 
+[env.production]
+name = "fastcash-backend"
+workers_dev = true
+
+[env.production.ai]
+binding = "AI"
+
+[[env.production.kv_namespaces]]
+binding = "KV"
+id = "31da2b8837344af192a6a1e2c345baa6"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "fastcash-android-production"
+database_id = "c8a024b2-c861-4f81-84e6-e102ae2b6ef1"
+
 [env.staging]
 name = "fastcash-android-staging"
 workers_dev = true

@@ -97,6 +97,9 @@ customerApi.post('/slips/verify-ocr', async (c) => {
 
 app.route('/api', customerApi);
 
+// Redirect the public root URL to the API health endpoint.
+app.get('/', (c) => c.redirect('/api/status', 302));
+
 // Health Check
 app.get('/api/status', (c) => {
   return c.json({

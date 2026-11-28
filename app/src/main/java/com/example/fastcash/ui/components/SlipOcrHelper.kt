@@ -15,10 +15,21 @@ data class SlipOcrResult(
     val detectedAmount: Long? = null,
     val detectedAccount: AgentDestinationAccount? = null,
     val detectedMethod: String? = null,
-    val detectedReference: String? = null
+    val detectedReference: String? = null,
+    val transactionDate: String? = null,
+    val paymentStatus: String? = null,
+    val transferType: String? = null,
+    val sender: String? = null,
+    val senderBank: String? = null,
+    val senderAccount: String? = null,
+    val recipientBank: String? = null,
+    val recipientAccount: String? = null,
+    val recipientName: String? = null,
+    val remarks: String? = null
 ) {
     val hasAnyMatch: Boolean
-        get() = detectedAmount != null || detectedAccount != null || detectedMethod != null || detectedReference != null
+        get() = detectedAmount != null || detectedAccount != null || detectedMethod != null || detectedReference != null ||
+            transactionDate != null || paymentStatus != null || sender != null || recipientName != null
 }
 
 object SlipOcrHelper {
@@ -100,8 +111,32 @@ object SlipOcrHelper {
             detectedAmount = matchedAmount,
             detectedAccount = matchedAccount,
             detectedMethod = matchedMethod,
-            detectedReference = matchedReference
+            detectedReference = matchedReference,
+            transactionDate = labeledValue(rawText, "transaction date", "date & time", "date/time", "date", "time"),
+            paymentStatus = labeledValue(rawText, "transaction status", "status")
+                ?: if (Regex("(?i)\\b(successful|success|completed)\\b").containsMatchIn(rawText)) "SUCCESS (slip text)" else null,
+            transferType = labeledValue(rawText, "transaction type", "type"),
+            sender = labeledValue(rawText, "from", "sender name", "sender"),
+            senderBank = labeledValue(rawText, "from bank", "sender bank"),
+            senderAccount = labeledValue(rawText, "from account", "sender account"),
+            recipientBank = labeledValue(rawText, "to bank", "beneficiary bank", "recipient bank"),
+            recipientAccount = labeledValue(rawText, "to account", "beneficiary account", "recipient account"),
+            recipientName = labeledValue(rawText, "recipient name", "beneficiary name", "account holder"),
+            remarks = labeledValue(rawText, "remarks", "remark", "description", "narration")
         )
+    }
+
+    private fun labeledValue(rawText: String, vararg labels: String): String? {
+        // Match explicit labels only; never invent transaction or settlement details.
+        val lines = rawText.lines().map { it.trim() }.filter { it.isNotBlank() }
+        for (label in labels) {
+            val regex = Regex("(?i)^" + Regex.escape(label) + "\\s*[:#-]\\s*(.+)$")
+            for (line in lines) {
+                val candidate = regex.find(line)?.groupValues?.getOrNull(1)?.trim()?.take(140)
+                if (!candidate.isNullOrBlank() && candidate != "-") return candidate
+            }
+        }
+        return null
     }
 
     private fun matchDestinationAccount(

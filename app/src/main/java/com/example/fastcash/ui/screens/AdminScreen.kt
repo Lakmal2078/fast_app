@@ -1,12 +1,19 @@
 package com.example.fastcash.ui.screens
 
 import android.widget.Toast
+import android.content.Intent
+import androidx.core.content.FileProvider
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -56,6 +63,8 @@ fun AdminScreen(
     val adminAgentAccounts by viewModel.adminAgentAccounts.collectAsState()
 
     var activeTab by remember { mutableIntStateOf(0) } // 0: Queue, 1: Settings
+    var typeFilter by remember { mutableStateOf("ALL") }
+    var dateFilter by remember { mutableStateOf("ALL") }
     var editingAccount by remember { mutableStateOf<AgentDestinationAccount?>(null) }
     var isAddingAccount by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -65,7 +74,17 @@ fun AdminScreen(
             tx.reference.contains(searchQuery, ignoreCase = true) ||
             tx.playerId.contains(searchQuery, ignoreCase = true)
         val matchesStatus = statusFilter == "ALL" || tx.status == statusFilter
-        matchesQuery && matchesStatus
+        val matchesType = typeFilter == "ALL" || tx.type == typeFilter
+        val now = System.currentTimeMillis()
+        val age = now - tx.timestampMillis
+        val matchesDate = when (dateFilter) {
+            "TODAY" -> SimpleDateFormat("yyyyMMdd", Locale.US).format(Date(tx.timestampMillis)) ==
+                SimpleDateFormat("yyyyMMdd", Locale.US).format(Date(now))
+            "7 DAYS" -> age in 0L..(7L * 24 * 60 * 60 * 1000)
+            "30 DAYS" -> age in 0L..(30L * 24 * 60 * 60 * 1000)
+            else -> true
+        }
+        matchesQuery && matchesStatus && matchesType && matchesDate
     }
 
     LazyColumn(
@@ -189,6 +208,41 @@ fun AdminScreen(
                             }
                         }
                     }
+                }
+
+                item {
+                    AdminTransactionSummary(allTransactions, filteredTransactions)
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("ALL", "DEPOSIT", "WITHDRAWAL").forEach { kind ->
+                            FilterChip(selected = typeFilter == kind, onClick = { typeFilter = kind }, label = { Text(kind) })
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("ALL", "TODAY", "7 DAYS", "30 DAYS").forEach { range ->
+                            FilterChip(selected = dateFilter == range, onClick = { dateFilter = range }, label = { Text(range) })
+                        }
+                    }
+                    OutlinedButton(onClick = {
+                        if (viewModel.isAdmin.value) {
+                            val csv = buildAdminCsv(filteredTransactions)
+                            val reportDir = File(context.cacheDir, "reports").apply { mkdirs() }
+                            val report = File(reportDir, "fastcash-transactions-${System.currentTimeMillis()}.csv")
+                            report.writeText("\uFEFF" + csv, Charsets.UTF_8)
+                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", report)
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/csv"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Export filtered transaction report"))
+                        }
+                    }, modifier = Modifier.fillMaxWidth().testTag("admin_export_csv")) {
+                        Icon(Icons.Default.FileDownload, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("EXPORT FILTERED CSV (${filteredTransactions.size})")
+                    }
+                    Text("Only transactions loaded in the admin queue are exported. No security codes or slip images are included.", color = TextMuted, fontSize = 10.sp)
                 }
 
                 if (filteredTransactions.isEmpty()) {
@@ -805,4 +859,47 @@ fun AdminRequestCard(
             }
         }
     }
+}
+
+@Composable
+private fun AdminTransactionSummary(
+    allTransactions: List<FirestoreTransaction>,
+    filteredTransactions: List<FirestoreTransaction>
+) {
+    val deposits = filteredTransactions.filter { it.type == "DEPOSIT" }
+    val withdrawals = filteredTransactions.filter { it.type == "WITHDRAWAL" }
+    Card(colors = CardDefaults.cardColors(containerColor = DarkCard)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("TRANSACTION OVERVIEW", color = NeonCyan, style = MaterialTheme.typography.titleMedium)
+            Text("All accessible requests: ${allTransactions.size} · Filtered: ${filteredTransactions.size}", color = TextSecondary)
+            Text("Deposits: ${deposits.size} · LKR %,d".format(deposits.sumOf { it.amount }), color = StatusGreen)
+            Text("Withdrawals: ${withdrawals.size} · LKR %,d".format(withdrawals.sumOf { it.amount }), color = NeonCyan)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Pending: ${filteredTransactions.count { it.status == "PENDING" }}", color = StatusYellow)
+                Text("Processing: ${filteredTransactions.count { it.status == "PROCESSING" }}", color = NeonCyan)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Completed: ${filteredTransactions.count { it.status == "COMPLETED" }}", color = StatusGreen)
+                Text("Rejected: ${filteredTransactions.count { it.status == "REJECTED" }}", color = StatusRed)
+            }
+        }
+    }
+}
+
+private fun buildAdminCsv(transactions: List<FirestoreTransaction>): String {
+    fun cell(value: Any?): String {
+        val raw = value?.toString().orEmpty().replace("\r", " ").replace("\n", " ")
+        // Prevent spreadsheet formula execution when opening untrusted transaction fields.
+        val safe = if (raw.trimStart().firstOrNull() in listOf('=', '+', '-', '@', '\t')) "'" + raw else raw
+        return "\"" + safe.replace("\"", "\"\"") + "\""
+    }
+    val rows = transactions.map { tx ->
+        listOf(tx.reference, tx.type, tx.status, tx.amount, tx.playerId,
+            tx.paymentMethod, tx.receiptKey, tx.agentAccountLabel, tx.bank,
+            tx.rejectionReason, tx.agentNote, tx.userName, tx.userEmail,
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(tx.timestampMillis)))
+            .joinToString(",") { cell(it) }
+    }
+    val header = "Reference,Type,Status,Amount_LKR,Player_ID,Method,Receipt_Reference,Agent_Account,Bank,Rejection_Reason,Agent_Note,Customer_Name,Customer_Email,Created_At"
+    return (listOf(header) + rows).joinToString("\r\n")
 }

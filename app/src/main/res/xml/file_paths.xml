@@ -3,4 +3,5 @@
     <cache-path
         name="slips"
         path="slips/" />
+    <cache-path name="reports" path="reports/" />
 </paths>

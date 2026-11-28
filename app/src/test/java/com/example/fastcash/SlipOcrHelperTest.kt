@@ -55,6 +55,33 @@ class SlipOcrHelperTest {
     }
 
     @Test
+    fun extractsIpayStatementMetadataWithoutInventingMissingFields() {
+        val sample = """
+            Transaction Summary – iPay
+            Amount: Rs. 450,000.00
+            Status: SUCCESS
+            Transaction Date: 2023-11-08 07:51:36
+            Type: Fund Transfer
+            From: Mahesh Niranjan, LOLC Finance PLC, *******5069
+            To Bank: Seylan Bank LTD
+            To Account: 097013406483001
+            Recipient Name: ABDUL GAFOOR MOHAMED MUSARRAF
+            Remarks: mahesh
+        """.trimIndent()
+        val result = SlipOcrHelper.parseOcrText(sample, DefaultAgentAccounts.accounts, 1000L, 500000L)
+        assertEquals(450000L, result.detectedAmount)
+        assertEquals("SUCCESS", result.paymentStatus)
+        assertEquals("2023-11-08 07:51:36", result.transactionDate)
+        assertEquals("Fund Transfer", result.transferType)
+        assertEquals("Mahesh Niranjan, LOLC Finance PLC, *******5069", result.sender)
+        assertEquals("Seylan Bank LTD", result.recipientBank)
+        assertEquals("097013406483001", result.recipientAccount)
+        assertEquals("ABDUL GAFOOR MOHAMED MUSARRAF", result.recipientName)
+        assertEquals("mahesh", result.remarks)
+        assertNull(result.detectedReference)
+    }
+
+    @Test
     fun ignoresOutOfRangeAmountsAndEmptyText() {
         val result = SlipOcrHelper.parseOcrText(
             rawText = "Unclear photo\nBalance LKR 250.00",
