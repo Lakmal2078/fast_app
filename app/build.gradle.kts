@@ -36,6 +36,15 @@ android {
                 keyPassword = "android"
             }
         }
+        create("release") {
+            val passFile = file(System.getProperty("user.home") + "/.android/signing/fastcash/release.pass")
+            val pass = if (passFile.exists()) passFile.readText().trim() else System.getenv("FASTCASH_KEYSTORE_PASS") ?: ""
+            storeFile = file(System.getProperty("user.home") + "/.android/signing/fastcash/release.p12")
+            storeType = "PKCS12"
+            storePassword = pass
+            keyAlias = "fastcash-release"
+            keyPassword = pass
+        }
     }
 
     buildTypes {
@@ -44,6 +53,7 @@ android {
             buildConfigField("String", "BACKEND_BASE_URL", "\"$debugBackendUrl\"")
         }
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
