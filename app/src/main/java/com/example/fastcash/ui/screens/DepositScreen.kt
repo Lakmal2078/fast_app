@@ -74,6 +74,23 @@ fun DepositScreen(
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
+    var lastAutoSharedRef by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(successRef, submittedSlipUri) {
+        val ref = successRef
+        val slipUri = submittedSlipUri
+        if (ref != null && ref != lastAutoSharedRef) {
+            lastAutoSharedRef = ref
+            if (slipUri != null && WhatsAppHelper.isWhatsAppInstalled(context)) {
+                WhatsAppHelper.shareImageToWhatsApp(
+                    context = context,
+                    imageUri = slipUri,
+                    message = whatsappMsg,
+                    phoneNumber = appConfig.whatsappNumber
+                )
+            }
+        }
+    }
 
     val slipPreviewBitmap = remember(slipBase64) {
         SlipImageHelper.decodeBase64ToImageBitmap(slipBase64)
@@ -190,11 +207,21 @@ fun DepositScreen(
                     Spacer(modifier = Modifier.height(20.dp))
                     Button(
                         onClick = {
-                            WhatsAppHelper.openWhatsApp(
-                                context = context,
-                                phoneNumber = appConfig.whatsappNumber,
-                                message = whatsappMsg
-                            )
+                            val slipUri = submittedSlipUri
+                            if (slipUri != null) {
+                                WhatsAppHelper.shareImageToWhatsApp(
+                                    context = context,
+                                    imageUri = slipUri,
+                                    message = whatsappMsg,
+                                    phoneNumber = appConfig.whatsappNumber
+                                )
+                            } else {
+                                WhatsAppHelper.openWhatsApp(
+                                    context = context,
+                                    phoneNumber = appConfig.whatsappNumber,
+                                    message = whatsappMsg
+                                )
+                            }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -211,45 +238,14 @@ fun DepositScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (language == "si") "WHATSAPP වෙත යවන්න" else "SEND TO AGENT WHATSAPP",
+                            text = if (submittedSlipUri != null) {
+                                if (language == "si") "ස්ලිප් සහ විස්තර WHATSAPP වෙත යවන්න" else "SEND SLIP & DETAILS TO WHATSAPP"
+                            } else {
+                                if (language == "si") "WHATSAPP වෙත යවන්න" else "SEND TO AGENT WHATSAPP"
+                            },
                             color = DarkBackground,
                             style = MaterialTheme.typography.labelLarge
                         )
-                    }
-
-                    if (submittedSlipUri != null) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Button(
-                            onClick = {
-                                submittedSlipUri?.let { uri ->
-                                    WhatsAppHelper.shareImageToWhatsApp(
-                                        context = context,
-                                        imageUri = uri,
-                                        message = whatsappMsg
-                                    )
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .testTag("deposit_share_slip_whatsapp_btn"),
-                            colors = ButtonDefaults.buttonColors(containerColor = NeonPink),
-                            shape = RoundedCornerShape(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Image,
-                                contentDescription = "Share Slip Image",
-                                tint = TextPrimary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (language == "si") "ස්ලිප් ෆොටෝ එක WHATSAPP වෙත යවන්න" else "SHARE SLIP PHOTO TO WHATSAPP",
-                                color = TextPrimary,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontSize = 12.sp
-                            )
-                        }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))

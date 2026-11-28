@@ -106,7 +106,21 @@ object WhatsAppHelper {
         }
     }
 
-    fun shareImageToWhatsApp(context: Context, imageUri: Uri, message: String? = null) {
+    fun isWhatsAppInstalled(context: Context): Boolean {
+        val pm = context.packageManager
+        return listOf("com.whatsapp", "com.whatsapp.w4b").any { pkg ->
+            runCatching { pm.getPackageInfo(pkg, 0) }.isSuccess
+        }
+    }
+
+    fun shareImageToWhatsApp(
+        context: Context,
+        imageUri: Uri,
+        message: String? = null,
+        phoneNumber: String? = null
+    ) {
+        val cleanNumber = phoneNumber?.replace("+", "")?.replace(" ", "")?.replace("-", "")
+            ?.takeIf { it.isNotBlank() }
         val packages = listOf("com.whatsapp", "com.whatsapp.w4b")
         for (pkg in packages) {
             val intent = Intent(Intent.ACTION_SEND).apply {
@@ -114,6 +128,9 @@ object WhatsAppHelper {
                 putExtra(Intent.EXTRA_STREAM, imageUri)
                 if (!message.isNullOrBlank()) {
                     putExtra(Intent.EXTRA_TEXT, message)
+                }
+                if (cleanNumber != null) {
+                    putExtra("jid", "$cleanNumber@s.whatsapp.net")
                 }
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 setPackage(pkg)

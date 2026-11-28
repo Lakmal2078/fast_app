@@ -425,7 +425,7 @@ fun AdminScreen(
                                 viewModel.updateTransactionStatus(
                                     tx = tx,
                                     status = TransactionStatus.PROCESSING,
-                                    agentNote = agentNote
+                                    agentNote = null
                                 )
                             },
                             enabled = !isUpdating,
