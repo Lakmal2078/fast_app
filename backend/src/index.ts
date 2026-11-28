@@ -9,37 +9,35 @@ export interface Env {
 
 const app = new Hono<Bindings>();
 
-app.route('/api', customerApi);
-
-// Health Check
-app.get('/api/status', (c) => {
-  return c.json({
-    status: 'online',
-    service: 'Fast Cash Sri Lanka Edge API & AI Engine',
-    timestamp: Date.now(),
-    features: ['REST_API', 'WORKERS_AI_OCR', 'EDGE_STORAGE'],
-    version: '1.2.0'
-  });
-});
-
 // ==========================================
-// 🤖 Cloudflare Workers AI - Bank Slip OCR
+// 🤖 Cloudflare Workers AI - Bank Slip OCR (Authenticated)
 // ==========================================
-app.post('/api/slips/verify-ocr', async (c) => {
+const MAX_OCR_IMAGE_BASE64_LENGTH = 5 * 1024 * 1024; // ~5 MB base64 payload limit
+
+customerApi.post('/slips/verify-ocr', async (c) => {
   try {
     const body = await c.req.json<{
       image_base64: string;
       expected_amount?: number;
       expected_reference?: string;
-    }>();
+    }>().catch(() => null);
 
-    if (!body.image_base64) {
+    if (!body || typeof body.image_base64 !== 'string' || !body.image_base64.trim()) {
       return c.json({ error: 'image_base64 is required' }, 400);
     }
 
+    if (body.image_base64.length > MAX_OCR_IMAGE_BASE64_LENGTH) {
+      return c.json({ error: 'image_base64 exceeds maximum allowed size' }, 413);
+    }
+
     // Clean base64 string
-    const base64Data = body.image_base64.replace(/^data:image\/[a-z]+;base64,/, '');
-    const binaryData = Uint8Array.from(atob(base64Data), (char) => char.charCodeAt(0));
+    const base64Data = body.image_base64.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '');
+    let binaryData: Uint8Array;
+    try {
+      binaryData = Uint8Array.from(atob(base64Data), (char) => char.charCodeAt(0));
+    } catch {
+      return c.json({ error: 'Invalid base64 image data' }, 400);
+    }
 
     let extractedData = {
       bank: 'Unknown',
@@ -95,6 +93,19 @@ app.post('/api/slips/verify-ocr', async (c) => {
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
+});
+
+app.route('/api', customerApi);
+
+// Health Check
+app.get('/api/status', (c) => {
+  return c.json({
+    status: 'online',
+    service: 'Fast Cash Sri Lanka Edge API & AI Engine',
+    timestamp: Date.now(),
+    features: ['REST_API', 'WORKERS_AI_OCR', 'EDGE_STORAGE'],
+    version: '1.2.0'
+  });
 });
 
 export default app;
