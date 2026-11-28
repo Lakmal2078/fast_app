@@ -33,6 +33,10 @@ jobs:
         if [ ! -f app/google-services.json ] && [ -n "$GOOGLE_SERVICES_JSON" ]; then
           printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
         fi
+        if [ ! -s app/google-services.json ]; then
+          echo "::error::Firebase Android configuration is missing. Set the GOOGLE_SERVICES_JSON Actions secret in repository settings."
+          exit 1
+        fi
 
     - name: Build and Test with Gradle
       run: ./gradlew assembleDebug testDebugUnitTest --stacktrace
