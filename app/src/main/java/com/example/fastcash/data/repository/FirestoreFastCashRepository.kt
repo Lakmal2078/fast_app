@@ -269,6 +269,7 @@ class FirestoreFastCashRepository(
         securityCode: String,
         bank: String,
         accountNumber: String,
+        accountName: String,
         contactNumber: String
     ): Result<String> {
         var docPath = "transactions"
@@ -281,6 +282,7 @@ class FirestoreFastCashRepository(
             require(securityCode.trim().length in 1..128) { "Security code is required" }
             require(bank.trim().length in 1..100) { "Bank is required" }
             require(accountNumber.trim().length in 6..64) { "Valid bank account number is required" }
+            require(accountName.trim().length in 2..120) { "Account holder name is required" }
 
             val reference = "TXN-" + UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
             val txDoc = db.collection("transactions").document()
@@ -299,6 +301,7 @@ class FirestoreFastCashRepository(
                 "securityCode" to securityCode.trim(),
                 "bank" to bank.trim(),
                 "accountNumber" to accountNumber.trim(),
+                "accountName" to accountName.trim(),
                 "contactNumber" to contactNumber.trim().take(32).takeIf { it.isNotBlank() },
                 "createdAt" to FieldValue.serverTimestamp(),
                 "updatedAt" to FieldValue.serverTimestamp()
@@ -594,6 +597,7 @@ class FirestoreFastCashRepository(
         defaultPlayerId: String,
         bank: String,
         accountNumber: String,
+        accountName: String?,
         contactNumber: String?
     ): Result<Unit> {
         val path = "users/$userId"
@@ -602,6 +606,7 @@ class FirestoreFastCashRepository(
             check(uid == userId) { "Signed-in user mismatch" }
             val cleanBank = bank.trim().take(100)
             val cleanAcc = accountNumber.trim().take(64)
+            val cleanAccName = accountName?.trim()?.take(120)?.takeIf { it.isNotBlank() }
             val cleanContact = contactNumber?.trim()?.take(32)?.takeIf { it.isNotBlank() }
             require(cleanBank.isNotEmpty()) { "Select a bank first" }
             require(cleanAcc.length >= 6) { "Enter a valid bank account number (at least 6 digits)" }
@@ -612,6 +617,7 @@ class FirestoreFastCashRepository(
                 id = UUID.randomUUID().toString().replace("-", "").take(12),
                 bank = cleanBank,
                 accountNumber = cleanAcc,
+                accountName = cleanAccName,
                 contactNumber = cleanContact
             )
 
@@ -692,6 +698,7 @@ class FirestoreFastCashRepository(
         "id" to id,
         "bank" to bank,
         "accountNumber" to accountNumber,
+        "accountName" to accountName?.takeIf { it.isNotBlank() },
         "contactNumber" to contactNumber?.takeIf { it.isNotBlank() }
     ).filterValues { it != null } as Map<String, Any>
 
@@ -699,7 +706,8 @@ class FirestoreFastCashRepository(
         whatsappNumber: String,
         minTransaction: Long,
         maxTransaction: Long,
-        promoCode: String
+        promoCode: String,
+        agentAccounts: List<com.example.fastcash.data.model.AgentDestinationAccount>? = null
     ): Result<Unit> {
         val path = "app_config/settings"
         return try {
@@ -711,15 +719,30 @@ class FirestoreFastCashRepository(
             require(maxTransaction >= minTransaction && maxTransaction <= 10000000L) { "Invalid maximum transaction" }
             require(cleanPromo.length in 1..32) { "Invalid promo code" }
 
-            db.collection("app_config").document("settings").set(
-                mapOf(
-                    "whatsappNumber" to cleanWa,
-                    "minTransaction" to minTransaction,
-                    "maxTransaction" to maxTransaction,
-                    "promoCode" to cleanPromo,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
+            val payload = mutableMapOf<String, Any>(
+                "whatsappNumber" to cleanWa,
+                "minTransaction" to minTransaction,
+                "maxTransaction" to maxTransaction,
+                "promoCode" to cleanPromo,
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            if (agentAccounts != null) {
+                require(agentAccounts.isNotEmpty() && agentAccounts.size <= 20) {
+                    "Between 1 and 20 agent accounts are required"
+                }
+                payload["agentAccounts"] = agentAccounts.map { acc ->
+                    mapOf(
+                        "id" to acc.id.trim().take(64),
+                        "bankName" to acc.bankName.trim().take(100),
+                        "branch" to acc.branch.trim().take(100),
+                        "accountHolder" to acc.accountHolder.trim().take(120),
+                        "accountNumber" to acc.accountNumber.trim().take(64),
+                        "method" to acc.method.trim().ifBlank { "Bank transfer" }.take(64)
+                    )
+                }
+            }
+
+            db.collection("app_config").document("settings").set(payload).await()
             Result.success(Unit)
         } catch (e: CancellationException) {
             throw e

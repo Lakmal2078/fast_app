@@ -127,8 +127,8 @@ object SlipOcrHelper {
                 agentAccounts.firstOrNull { it.id == "pb_walasmulla" }
             lowerText.contains("sampath") || lowerText.contains("neluwa") || lowerText.contains("oshadhi") ->
                 agentAccounts.firstOrNull { it.id == "sampath_neluwa" }
-            lowerText.contains("bank of ceylon") || Regex("""\bboc\b""").containsMatchIn(lowerText) || lowerText.contains("pasindu") ->
-                agentAccounts.firstOrNull { it.id == "boc_walasmulla" }
+            lowerText.contains("bank of ceylon") || Regex("""\bboc\b""").containsMatchIn(lowerText) ->
+                agentAccounts.firstOrNull { it.id == "boc_head_office" }
             lowerText.contains("ipay") ->
                 agentAccounts.firstOrNull { it.id == "ipay_1" }
             else -> null

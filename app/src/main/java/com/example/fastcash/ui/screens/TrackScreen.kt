@@ -217,8 +217,9 @@ fun TrackScreen(
                             if (!tx.bank.isNullOrBlank()) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text("RECIPIENT BANK", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                                val accNamePart = if (!tx.accountName.isNullOrBlank()) " · ${tx.accountName}" else ""
                                 Text(
-                                    "${tx.bank} (Acc: ${tx.accountNumber ?: ""})",
+                                    "${tx.bank} (Acc: ${tx.accountNumber ?: ""}$accNamePart)",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = TextPrimary
                                 )

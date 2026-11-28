@@ -25,12 +25,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.fastcash.data.model.AgentDestinationAccount
 import com.example.fastcash.data.model.FirestoreTransaction
 import com.example.fastcash.data.model.TransactionStatus
 import com.example.fastcash.ui.components.SlipImageHelper
 import com.example.fastcash.ui.components.StatusPill
 import com.example.fastcash.ui.theme.*
 import com.example.fastcash.ui.viewmodel.FastCashViewModel
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,8 +53,11 @@ fun AdminScreen(
     val minAmt by viewModel.adminMinAmount.collectAsState()
     val maxAmt by viewModel.adminMaxAmount.collectAsState()
     val promo by viewModel.adminPromoCode.collectAsState()
+    val adminAgentAccounts by viewModel.adminAgentAccounts.collectAsState()
 
     var activeTab by remember { mutableIntStateOf(0) } // 0: Queue, 1: Settings
+    var editingAccount by remember { mutableStateOf<AgentDestinationAccount?>(null) }
+    var isAddingAccount by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     val filteredTransactions = allTransactions.filter { tx ->
@@ -280,6 +285,15 @@ fun AdminScreen(
                                 )
                             )
 
+                            if (adminActionError != null) {
+                                Text(
+                                    text = adminActionError ?: "",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = StatusRed,
+                                    fontSize = 12.sp
+                                )
+                            }
+
                             Button(
                                 onClick = {
                                     viewModel.saveAdminSettings()
@@ -297,8 +311,228 @@ fun AdminScreen(
                         }
                     }
                 }
+
+                // Agent Bank & iPay Accounts Manager
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, NeonCyan.copy(alpha = 0.35f), RoundedCornerShape(6.dp)),
+                        colors = CardDefaults.cardColors(containerColor = DarkCard)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "CONFIG // DEPOSIT DESTINATIONS",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = NeonCyan
+                                    )
+                                    Text(
+                                        text = "Agent Bank & iPay Accounts",
+                                        style = MaterialTheme.typography.titleLarge
+                                    )
+                                }
+                                FilledTonalButton(
+                                    onClick = {
+                                        isAddingAccount = true
+                                        editingAccount = AgentDestinationAccount(
+                                            id = "acc_" + UUID.randomUUID().toString().replace("-", "").take(8),
+                                            bankName = "",
+                                            branch = "",
+                                            accountHolder = "",
+                                            accountNumber = "",
+                                            method = "Bank transfer"
+                                        )
+                                    },
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = NeonCyan.copy(alpha = 0.16f),
+                                        contentColor = NeonCyan
+                                    ),
+                                    shape = RoundedCornerShape(4.dp),
+                                    modifier = Modifier.testTag("admin_add_bank_btn")
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("ADD", style = MaterialTheme.typography.labelLarge)
+                                }
+                            }
+
+                            adminAgentAccounts.forEach { acc ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(DarkSurface)
+                                        .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(6.dp))
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "${acc.bankName} (${acc.method})",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontSize = 14.sp,
+                                            color = TextPrimary
+                                        )
+                                        Text(
+                                            text = "${acc.branch} · ${acc.accountHolder}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontSize = 12.sp,
+                                            color = TextSecondary
+                                        )
+                                        Text(
+                                            text = acc.accountNumber,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontSize = 13.sp,
+                                            color = NeonCyan
+                                        )
+                                    }
+                                    Row {
+                                        IconButton(
+                                            onClick = {
+                                                isAddingAccount = false
+                                                editingAccount = acc
+                                            },
+                                            modifier = Modifier.testTag("admin_edit_bank_${acc.id}")
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Edit,
+                                                contentDescription = "Edit bank account",
+                                                tint = NeonCyan,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                        if (adminAgentAccounts.size > 1) {
+                                            IconButton(
+                                                onClick = {
+                                                    viewModel.deleteAdminAgentAccount(acc.id)
+                                                    Toast.makeText(context, "Removed ${acc.bankName}", Toast.LENGTH_SHORT).show()
+                                                },
+                                                modifier = Modifier.testTag("admin_delete_bank_${acc.id}")
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "Delete bank account",
+                                                    tint = StatusRed,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
+    }
+
+    // Add / Edit Agent Bank Account Dialog
+    if (editingAccount != null) {
+        val target = editingAccount!!
+        var bankName by remember(target.id) { mutableStateOf(target.bankName) }
+        var branch by remember(target.id) { mutableStateOf(target.branch) }
+        var holder by remember(target.id) { mutableStateOf(target.accountHolder) }
+        var accNumber by remember(target.id) { mutableStateOf(target.accountNumber) }
+        var method by remember(target.id) { mutableStateOf(target.method.ifBlank { "Bank transfer" }) }
+        var formError by remember(target.id) { mutableStateOf<String?>(null) }
+
+        AlertDialog(
+            onDismissRequest = { editingAccount = null },
+            containerColor = DarkCard,
+            title = {
+                Text(
+                    text = if (isAddingAccount) "Add Bank / iPay Account" else "Edit Bank / iPay Account",
+                    color = TextPrimary
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("Bank transfer", "iPay wallet").forEach { option ->
+                            FilterChip(
+                                selected = method == option,
+                                onClick = { method = option },
+                                label = { Text(option, fontSize = 12.sp) }
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = bankName,
+                        onValueChange = { bankName = it },
+                        label = { Text("Bank / Wallet Name *") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = branch,
+                        onValueChange = { branch = it },
+                        label = { Text("Branch / Label") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = holder,
+                        onValueChange = { holder = it },
+                        label = { Text("Account Holder Name *") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = accNumber,
+                        onValueChange = { accNumber = it },
+                        label = { Text("Account / iPay Number *") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (formError != null) {
+                        Text(formError!!, color = StatusRed, fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (bankName.isBlank() || holder.isBlank() || accNumber.isBlank()) {
+                            formError = "Bank name, holder name, and account number are required."
+                            return@Button
+                        }
+                        viewModel.saveAdminAgentAccount(
+                            target.copy(
+                                bankName = bankName.trim(),
+                                branch = branch.trim(),
+                                accountHolder = holder.trim(),
+                                accountNumber = accNumber.trim(),
+                                method = method
+                            )
+                        )
+                        editingAccount = null
+                        Toast.makeText(context, "Bank account saved!", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonCyan)
+                ) {
+                    Text("SAVE", color = DarkBackground)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingAccount = null }) {
+                    Text("CANCEL", color = TextSecondary)
+                }
+            }
+        )
     }
 
     // Decision & Player Notification Dialog
@@ -369,8 +603,9 @@ fun AdminScreen(
                         )
                     }
                     if (!tx.bank.isNullOrBlank()) {
+                        val accNamePart = if (!tx.accountName.isNullOrBlank()) " · Name: ${tx.accountName}" else ""
                         Text(
-                            text = "Payout Bank: ${tx.bank} · Acc: ${tx.accountNumber ?: ""}",
+                            text = "Payout Bank: ${tx.bank} · Acc: ${tx.accountNumber ?: ""}$accNamePart",
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary,
                             fontSize = 12.sp

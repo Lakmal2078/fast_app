@@ -81,6 +81,7 @@ service cloud.firestore {
              data.minTransaction is int && data.minTransaction >= 100 && data.minTransaction <= 500000 &&
              data.maxTransaction is int && data.maxTransaction >= data.minTransaction && data.maxTransaction <= 10000000 &&
              data.promoCode is string && data.promoCode.size() >= 1 && data.promoCode.size() <= 32 &&
+             (!('agentAccounts' in data) || (data.agentAccounts is list && data.agentAccounts.size() <= 20)) &&
              data.updatedAt is timestamp && data.updatedAt <= request.time;
     }
 
@@ -181,7 +182,7 @@ service cloud.firestore {
                                  'whatsappNumber', 'minTransaction', 'maxTransaction', 'promoCode', 'updatedAt'
                                ]) &&
                                incoming().keys().hasOnly([
-                                 'whatsappNumber', 'minTransaction', 'maxTransaction', 'promoCode', 'updatedAt'
+                                 'whatsappNumber', 'minTransaction', 'maxTransaction', 'promoCode', 'agentAccounts', 'updatedAt'
                                ]) &&
                                isValidAppConfig(incoming());
       allow delete: if false;

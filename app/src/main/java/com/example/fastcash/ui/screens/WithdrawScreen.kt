@@ -49,6 +49,7 @@ fun WithdrawScreen(
     val securityCode by viewModel.withdrawSecurityCode.collectAsState()
     val bank by viewModel.withdrawBank.collectAsState()
     val accountNumber by viewModel.withdrawAccountNumber.collectAsState()
+    val accountName by viewModel.withdrawAccountName.collectAsState()
     val contactNumber by viewModel.withdrawContactNumber.collectAsState()
     val isSubmitting by viewModel.withdrawIsSubmitting.collectAsState()
     val successRef by viewModel.withdrawSuccessRef.collectAsState()
@@ -398,6 +399,31 @@ fun WithdrawScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("withdraw_account_number_input"),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = NeonPink,
+                                unfocusedBorderColor = Color(0x33FFFFFF),
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary
+                            )
+                        )
+                    }
+
+                    // Account Name
+                    Column {
+                        Text(
+                            text = labels.getString(R.string.tx_account_name),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        OutlinedTextField(
+                            value = accountName,
+                            onValueChange = { viewModel.withdrawAccountName.value = it },
+                            placeholder = { Text("Enter bank account holder name", color = TextMuted) },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("withdraw_account_name_input"),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = NeonPink,
                                 unfocusedBorderColor = Color(0x33FFFFFF),

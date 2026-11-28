@@ -21,6 +21,7 @@
   <string name="tx_code">1XBET CASH SECURITY CODE *</string>
   <string name="tx_bank">RECIPIENT BANK *</string>
   <string name="tx_account">BANK ACCOUNT NUMBER *</string>
+  <string name="tx_account_name">ACCOUNT NAME *</string>
   <string name="tx_phone">CONTACT / WHATSAPP NUMBER</string>
   <string name="tx_withdraw_submit">SUBMIT WITHDRAWAL REQUEST</string>
   <string name="tx_queued">PAYOUT QUEUED</string>

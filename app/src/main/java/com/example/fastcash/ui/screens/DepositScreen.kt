@@ -69,12 +69,13 @@ fun DepositScreen(
     val appConfig by viewModel.appConfig.collectAsState()
     val savedPlayerIds by viewModel.savedPlayerIds.collectAsState()
     val isSavingPreset by viewModel.isSavingPreset.collectAsState()
-    val agentAccounts = viewModel.agentAccounts
+    val agentAccounts by viewModel.agentAccounts.collectAsState()
 
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     var lastAutoSharedRef by remember { mutableStateOf<String?>(null) }
+    var revealedAccountIds by remember { mutableStateOf(setOf<String>()) }
 
     LaunchedEffect(successRef, submittedSlipUri) {
         val ref = successRef
@@ -381,32 +382,53 @@ fun DepositScreen(
                                     color = TextSecondary
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
+                                val isRevealed = acc.id in revealedAccountIds
                                 Text(
-                                    text = acc.accountNumber,
+                                    text = if (isRevealed) acc.accountNumber else maskAccountNumber(acc.accountNumber),
                                     style = MaterialTheme.typography.labelLarge,
                                     fontSize = 15.sp,
                                     color = NeonCyan,
                                     fontFamily = FontFamily.Monospace
                                 )
                             }
-                            IconButton(
-                                onClick = {
-                                    viewModel.selectAgentAccount(acc)
-                                    clipboard.setText(AnnotatedString(acc.accountNumber))
-                                    Toast.makeText(
-                                        context,
-                                        "Copied ${acc.bankName}: ${acc.accountNumber}",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                },
-                                modifier = Modifier.testTag("copy_account_${acc.id}")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.ContentCopy,
-                                    contentDescription = "Copy ${acc.bankName} account number",
-                                    tint = NeonCyan,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                val isRevealed = acc.id in revealedAccountIds
+                                IconButton(
+                                    onClick = {
+                                        revealedAccountIds = if (isRevealed) {
+                                            revealedAccountIds - acc.id
+                                        } else {
+                                            revealedAccountIds + acc.id
+                                        }
+                                    },
+                                    modifier = Modifier.testTag("toggle_mask_${acc.id}")
+                                ) {
+                                    Icon(
+                                        imageVector = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = if (isRevealed) "Hide account number" else "Show account number",
+                                        tint = TextSecondary,
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        viewModel.selectAgentAccount(acc)
+                                        clipboard.setText(AnnotatedString(acc.accountNumber))
+                                        Toast.makeText(
+                                            context,
+                                            "Copied ${acc.bankName} (${maskAccountNumber(acc.accountNumber)})",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    modifier = Modifier.testTag("copy_account_${acc.id}")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "Copy ${acc.bankName} account number",
+                                        tint = NeonCyan,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -439,8 +461,13 @@ fun DepositScreen(
                                 color = NeonCyan,
                                 fontSize = 10.sp
                             )
+                            val displayAccNum = if (selectedAccount.id in revealedAccountIds) {
+                                selectedAccount.accountNumber
+                            } else {
+                                maskAccountNumber(selectedAccount.accountNumber)
+                            }
                             Text(
-                                text = "${selectedAccount.displayLabel} · ${selectedAccount.accountNumber}",
+                                text = "${selectedAccount.displayLabel} · $displayAccNum",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextPrimary,
                                 fontSize = 12.sp
@@ -817,4 +844,11 @@ fun DepositScreen(
             }
         }
     }
+}
+
+private fun maskAccountNumber(accountNumber: String): String {
+    val clean = accountNumber.trim()
+    if (clean.length <= 4) return "••••"
+    val maskLen = (clean.length - 4).coerceIn(4, 10)
+    return "•".repeat(maskLen) + clean.takeLast(4)
 }

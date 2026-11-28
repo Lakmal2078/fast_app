@@ -72,10 +72,6 @@ class FastCashViewModel(
     val isAdmin = MutableStateFlow(false)
     val isAdminMode = MutableStateFlow(false)
 
-    // Agent Accounts (built-in verified bank & iPay destinations)
-    val agentAccounts: List<AgentDestinationAccount> = DefaultAgentAccounts.accounts
-    val selectedAgentAccount = MutableStateFlow(agentAccounts.first())
-
     // Firestore App Config
     val appConfig: StateFlow<FirestoreAppConfig> = repository.observeAppConfig()
         .catch { error ->
@@ -85,6 +81,12 @@ class FastCashViewModel(
             emit(FirestoreAppConfig())
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), FirestoreAppConfig())
+
+    // Agent Accounts (synced from Firestore App Config, falling back to built-in defaults)
+    val agentAccounts: StateFlow<List<AgentDestinationAccount>> = appConfig
+        .map { it.effectiveAgentAccounts() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), DefaultAgentAccounts.accounts)
+    val selectedAgentAccount = MutableStateFlow(DefaultAgentAccounts.accounts.first())
 
     // Player Transactions (scoped by userId)
     val playerFirestoreTransactions: StateFlow<List<FirestoreTransaction>> =
@@ -251,6 +253,7 @@ class FastCashViewModel(
     val withdrawSecurityCode = MutableStateFlow("")
     val withdrawBank = MutableStateFlow("Bank of Ceylon (BOC)")
     val withdrawAccountNumber = MutableStateFlow("")
+    val withdrawAccountName = MutableStateFlow("")
     val withdrawContactNumber = MutableStateFlow("")
     val withdrawIsSubmitting = MutableStateFlow(false)
     val withdrawSuccessRef = MutableStateFlow<String?>(null)
@@ -268,7 +271,7 @@ class FastCashViewModel(
     private var searchJob: Job? = null
 
     // Profile State
-    val profileName = MutableStateFlow(currentUserName ?: "")
+    val profileName = MutableStateFlow("")
     val profilePlayerId = MutableStateFlow("")
     val isSavingProfile = MutableStateFlow(false)
     val profileMessage = MutableStateFlow<String?>(null)
@@ -286,6 +289,7 @@ class FastCashViewModel(
     val adminMinAmount = MutableStateFlow("1000")
     val adminMaxAmount = MutableStateFlow("500000")
     val adminPromoCode = MutableStateFlow("VGSL")
+    val adminAgentAccounts = MutableStateFlow(DefaultAgentAccounts.accounts)
 
     init {
         viewModelScope.launch {
@@ -311,6 +315,10 @@ class FastCashViewModel(
                 adminMinAmount.value = cfg.minTransaction.toString()
                 adminMaxAmount.value = cfg.maxTransaction.toString()
                 adminPromoCode.value = cfg.promoCode
+                val effective = cfg.effectiveAgentAccounts()
+                adminAgentAccounts.value = effective
+                val currentId = selectedAgentAccount.value.id
+                selectedAgentAccount.value = effective.firstOrNull { it.id == currentId } ?: effective.first()
             }
         }
     }
@@ -518,6 +526,15 @@ class FastCashViewModel(
             }
             return
         }
+        val cleanAccountName = withdrawAccountName.value.trim()
+        if (cleanAccountName.length < 2) {
+            withdrawError.value = if (selectedLanguage.value == "si") {
+                "බැංකු ගිණුම් හිමියාගේ නම ඇතුළත් කරන්න."
+            } else {
+                "Please enter the bank account holder name"
+            }
+            return
+        }
         val bankName = withdrawBank.value
         val contact = withdrawContactNumber.value.trim()
 
@@ -530,6 +547,7 @@ class FastCashViewModel(
                 securityCode = cleanCode,
                 bank = bankName,
                 accountNumber = cleanAccount,
+                accountName = cleanAccountName,
                 contactNumber = contact
             )
             result.fold(
@@ -541,7 +559,7 @@ class FastCashViewModel(
                             it.bank.equals(bankName, ignoreCase = true) && it.accountNumber == cleanAccount
                         }
                     ) {
-                        saveBankPresetInternal(bankName, cleanAccount, contact.ifBlank { null })
+                        saveBankPresetInternal(bankName, cleanAccount, cleanAccountName, contact.ifBlank { null })
                     }
                     val waMsg = WhatsAppHelper.buildWithdrawalMessage(
                         reference = ref,
@@ -550,6 +568,7 @@ class FastCashViewModel(
                         securityCode = cleanCode,
                         bank = bankName,
                         accountNumber = cleanAccount,
+                        accountName = cleanAccountName,
                         contactNumber = contact.ifBlank { null },
                         customerName = profileName.value.ifBlank { currentUserName },
                         customerEmail = currentUserEmail
@@ -560,6 +579,7 @@ class FastCashViewModel(
                     withdrawAmount.value = ""
                     withdrawSecurityCode.value = ""
                     withdrawAccountNumber.value = ""
+                    withdrawAccountName.value = ""
                     withdrawContactNumber.value = ""
                 },
                 onFailure = { e ->
@@ -592,6 +612,7 @@ class FastCashViewModel(
 
     fun saveCurrentBankPreset() {
         val cleanAccount = withdrawAccountNumber.value.trim()
+        val cleanAccountName = withdrawAccountName.value.trim().ifBlank { null }
         val bankName = withdrawBank.value.trim()
         val contact = withdrawContactNumber.value.trim().ifBlank { null }
         if (bankName.isBlank() || cleanAccount.length < 6) {
@@ -603,10 +624,10 @@ class FastCashViewModel(
             return
         }
         withdrawError.value = null
-        saveBankPresetInternal(bankName, cleanAccount, contact)
+        saveBankPresetInternal(bankName, cleanAccount, cleanAccountName, contact)
     }
 
-    private fun saveBankPresetInternal(bankName: String, accountNumber: String, contact: String?) {
+    private fun saveBankPresetInternal(bankName: String, accountNumber: String, accountName: String?, contact: String?) {
         viewModelScope.launch {
             isSavingPreset.value = true
             repository.saveBankPreset(
@@ -615,6 +636,7 @@ class FastCashViewModel(
                 defaultPlayerId = profilePlayerId.value.ifBlank { withdrawPlayerId.value.ifBlank { depositPlayerId.value } },
                 bank = bankName,
                 accountNumber = accountNumber,
+                accountName = accountName,
                 contactNumber = contact
             )
             isSavingPreset.value = false
@@ -630,6 +652,7 @@ class FastCashViewModel(
     fun applyBankPreset(preset: SavedBankPreset) {
         withdrawBank.value = preset.bank
         withdrawAccountNumber.value = preset.accountNumber
+        preset.accountName?.let { withdrawAccountName.value = it }
         preset.contactNumber?.let { withdrawContactNumber.value = it }
         withdrawError.value = null
     }
@@ -731,17 +754,41 @@ class FastCashViewModel(
     fun saveAdminSettings() {
         val min = adminMinAmount.value.toLongOrNull() ?: 1000L
         val max = adminMaxAmount.value.toLongOrNull() ?: 500000L
+        adminActionError.value = null
         viewModelScope.launch {
             val result = repository.saveAppConfig(
                 whatsappNumber = adminWhatsapp.value.trim(),
                 minTransaction = min,
                 maxTransaction = max,
-                promoCode = adminPromoCode.value.trim()
+                promoCode = adminPromoCode.value.trim(),
+                agentAccounts = adminAgentAccounts.value
             )
             result.onFailure { e ->
                 adminActionError.value = e.localizedMessage ?: "Failed to save settings"
             }
         }
+    }
+
+    fun saveAdminAgentAccount(account: AgentDestinationAccount) {
+        val current = adminAgentAccounts.value
+        val exists = current.any { it.id == account.id }
+        val updated = if (exists) {
+            current.map { if (it.id == account.id) account else it }
+        } else {
+            current + account
+        }
+        adminAgentAccounts.value = updated
+        saveAdminSettings()
+    }
+
+    fun deleteAdminAgentAccount(accountId: String) {
+        val current = adminAgentAccounts.value
+        if (current.size <= 1) {
+            adminActionError.value = "At least one bank or iPay account must remain."
+            return
+        }
+        adminAgentAccounts.value = current.filterNot { it.id == accountId }
+        saveAdminSettings()
     }
 
     fun markNotificationAsRead(id: String) {

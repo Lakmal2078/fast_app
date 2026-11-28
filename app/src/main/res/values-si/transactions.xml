@@ -21,6 +21,7 @@
   <string name="tx_code">මුදල් ලබාගැනීමේ කේතය *</string>
   <string name="tx_bank">මුදල් ලබන බැංකුව *</string>
   <string name="tx_account">බැංකු ගිණුම් අංකය *</string>
+  <string name="tx_account_name">ගිණුම් හිමියාගේ නම *</string>
   <string name="tx_phone">දුරකථන හෝ WhatsApp අංකය</string>
   <string name="tx_withdraw_submit">මුදල් ලබාගැනීමේ ඉල්ලීම යවන්න</string>
   <string name="tx_queued">ඉල්ලීම භාරගත්තා</string>

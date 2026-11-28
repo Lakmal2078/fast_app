@@ -57,6 +57,7 @@ object WhatsAppHelper {
         securityCode: String,
         bank: String,
         accountNumber: String,
+        accountName: String?,
         contactNumber: String?,
         customerName: String?,
         customerEmail: String?
@@ -71,6 +72,9 @@ object WhatsAppHelper {
             "Recipient Bank: $bank",
             "Account Number: $accountNumber"
         )
+        if (!accountName.isNullOrBlank()) {
+            lines.add("Account Name: $accountName")
+        }
         if (!contactNumber.isNullOrBlank()) {
             lines.add("Contact / WhatsApp: $contactNumber")
         }

@@ -1,5 +1,10 @@
 package com.example.fastcash.ui.screens
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -35,8 +43,10 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val content by viewModel.content.collectAsState()
+    val language by viewModel.selectedLanguage.collectAsState()
     val transactions by viewModel.allTransactions.collectAsState()
     val recentTransactions = transactions.take(3)
+    val context = LocalContext.current
 
     LazyColumn(
         modifier = modifier
@@ -229,6 +239,14 @@ fun HomeScreen(
             }
         }
 
+        // Telegram Channel, Bot & Web Landing Page Cards
+        item {
+            TelegramServicesSection(
+                language = language,
+                onOpenUrl = { url -> openExternalUrl(context, url) }
+            )
+        }
+
         // Recent Requests Section
         item {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -399,5 +417,224 @@ fun TransactionSummaryCard(
                 )
             }
         }
+    }
+}
+
+private data class HomeServiceCardData(
+    val tag: String,
+    val kicker: String,
+    val title: String,
+    val description: String,
+    val buttonLabel: String,
+    val url: String,
+    val accentColor: Color,
+    val icon: ImageVector
+)
+
+@Composable
+private fun TelegramServicesSection(
+    language: String,
+    onOpenUrl: (String) -> Unit
+) {
+    val cards = remember(language) {
+        when (language) {
+            "si" -> listOf(
+                HomeServiceCardData(
+                    tag = "home_tips_channel_card",
+                    kicker = "DAILY FREE TIPS // @fast_xbet_official_tips",
+                    title = "නොමිලේ Sports Betting Tips",
+                    description = "දිනපතා විශ්ලේෂණය කළ 100% නොමිලේ ක්‍රීඩා ඉඟි (Free Tips), slip codes, සජීවී odds සහ ක්ෂණික alerts අපගේ නිල Telegram Channel එකෙන් ලබාගන්න.",
+                    buttonLabel = "TELEGRAM CHANNEL එකට එක්වන්න",
+                    url = "https://t.me/fast_xbet_official_tips",
+                    accentColor = NeonCyan,
+                    icon = Icons.Default.TipsAndUpdates
+                ),
+                HomeServiceCardData(
+                    tag = "home_telegram_bot_card",
+                    kicker = "TELEGRAM BOT // @fast_1xbetcash_bot",
+                    title = "Fast xBet Cash Telegram Bot",
+                    description = "eZ Cash, mCash, FriMi, iPay සහ බැංකු හරහා මඟපෙන්වන Deposit/Withdraw සහාය, Free Sports Tips සහ භාෂා 3කින්ම සහාය එකම Telegram Bot එකෙන්.",
+                    buttonLabel = "TELEGRAM BOT විවෘත කරන්න",
+                    url = "https://t.me/fast_1xbetcash_bot?start=app",
+                    accentColor = NeonPink,
+                    icon = Icons.Default.SmartToy
+                ),
+                HomeServiceCardData(
+                    tag = "home_landing_page_card",
+                    kicker = "WEB PORTAL // LIVE TIPS & GUIDE",
+                    title = "Fast xBet Cash Web Landing Page",
+                    description = "සජීවී Free Tips පෙරදසුන, ගෙවීම් ක්‍රම පිළිබඳ විස්තර, නිතර අසන ප්‍රශ්න (FAQ), QR පිවිසුම සහ Telegram Bot සබැඳි අපගේ වෙබ් පිටුවෙන් බලන්න.",
+                    buttonLabel = "වෙබ් පිටුවට පිවිසෙන්න",
+                    url = "https://xbet-telegram-bot.lakmal-gamage.workers.dev/",
+                    accentColor = NeonCyan,
+                    icon = Icons.Default.Language
+                )
+            )
+            "ta" -> listOf(
+                HomeServiceCardData(
+                    tag = "home_tips_channel_card",
+                    kicker = "DAILY FREE TIPS // @fast_xbet_official_tips",
+                    title = "இலவச Sports Betting Tips",
+                    description = "தினசரி பகுப்பாய்வு செய்யப்பட்ட 100% இலவச விளையாட்டு குறிப்புகள், slip codes, நேரடி odds மற்றும் உடனடி அறிவிப்புகளுக்கு எங்கள் Telegram Channel-ல் இணையுங்கள்.",
+                    buttonLabel = "TELEGRAM CHANNEL-ல் இணையுங்கள்",
+                    url = "https://t.me/fast_xbet_official_tips",
+                    accentColor = NeonCyan,
+                    icon = Icons.Default.TipsAndUpdates
+                ),
+                HomeServiceCardData(
+                    tag = "home_telegram_bot_card",
+                    kicker = "TELEGRAM BOT // @fast_1xbetcash_bot",
+                    title = "Fast xBet Cash Telegram Bot",
+                    description = "eZ Cash, mCash, FriMi, iPay மற்றும் வங்கி வழியான Deposit/Withdraw வழிகாட்டல், இலவச Sports Tips மற்றும் மும்மொழி உதவி ஒரே Telegram Bot-ல்.",
+                    buttonLabel = "TELEGRAM BOT திறக்கவும்",
+                    url = "https://t.me/fast_1xbetcash_bot?start=app",
+                    accentColor = NeonPink,
+                    icon = Icons.Default.SmartToy
+                ),
+                HomeServiceCardData(
+                    tag = "home_landing_page_card",
+                    kicker = "WEB PORTAL // LIVE TIPS & GUIDE",
+                    title = "Fast xBet Cash Web Landing Page",
+                    description = "நேரடி இலவச Tips முன்னோட்டம், கட்டண முறைகள், FAQ, QR அணுகல் மற்றும் Telegram Bot இணைப்புகளை எங்கள் இணையதளத்தில் காண்க.",
+                    buttonLabel = "வலைப்பக்கத்தைத் திறக்கவும்",
+                    url = "https://xbet-telegram-bot.lakmal-gamage.workers.dev/",
+                    accentColor = NeonCyan,
+                    icon = Icons.Default.Language
+                )
+            )
+            else -> listOf(
+                HomeServiceCardData(
+                    tag = "home_tips_channel_card",
+                    kicker = "DAILY FREE TIPS // @fast_xbet_official_tips",
+                    title = "Free Sports Betting Tips",
+                    description = "100% free daily analyzed sports tips, slip codes, real market odds, and instant alerts via our official Telegram Channel.",
+                    buttonLabel = "JOIN FREE TIPS CHANNEL",
+                    url = "https://t.me/fast_xbet_official_tips",
+                    accentColor = NeonCyan,
+                    icon = Icons.Default.TipsAndUpdates
+                ),
+                HomeServiceCardData(
+                    tag = "home_telegram_bot_card",
+                    kicker = "TELEGRAM BOT // @fast_1xbetcash_bot",
+                    title = "Fast xBet Cash Telegram Bot",
+                    description = "Guided eZ Cash, mCash, FriMi, iPay & bank deposits/withdrawals, free sports tips, and multilingual help — all inside one Telegram bot.",
+                    buttonLabel = "OPEN TELEGRAM BOT",
+                    url = "https://t.me/fast_1xbetcash_bot?start=app",
+                    accentColor = NeonPink,
+                    icon = Icons.Default.SmartToy
+                ),
+                HomeServiceCardData(
+                    tag = "home_landing_page_card",
+                    kicker = "WEB PORTAL // LIVE TIPS & GUIDE",
+                    title = "Fast xBet Cash Web Landing Page",
+                    description = "Explore today's live tips preview, local payment guides, FAQ, quick QR access, and direct Telegram Bot launcher on our web portal.",
+                    buttonLabel = "OPEN WEB LANDING PAGE",
+                    url = "https://xbet-telegram-bot.lakmal-gamage.workers.dev/",
+                    accentColor = NeonCyan,
+                    icon = Icons.Default.Language
+                )
+            )
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Column {
+            Text(
+                text = "TELEGRAM & TIPS // SERVICES",
+                style = MaterialTheme.typography.labelSmall,
+                color = NeonCyan
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = when (language) {
+                    "si" -> "Telegram Bot, Free Tips සහ Web සේවා"
+                    "ta" -> "Telegram Bot, இலவச Tips & Web சேவைகள்"
+                    else -> "Free Tips, Telegram Bot & Web Portal"
+                },
+                style = MaterialTheme.typography.headlineMedium
+            )
+        }
+
+        cards.forEach { card ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(card.tag)
+                    .border(1.dp, card.accentColor.copy(alpha = 0.35f), RoundedCornerShape(6.dp)),
+                colors = CardDefaults.cardColors(containerColor = DarkCard)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .border(1.dp, card.accentColor.copy(alpha = 0.45f), RoundedCornerShape(4.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = card.icon,
+                                contentDescription = null,
+                                tint = card.accentColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = card.kicker,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = card.accentColor,
+                                fontSize = 10.sp
+                            )
+                            Text(
+                                text = card.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = TextPrimary
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = card.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = { onOpenUrl(card.url) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        border = BorderStroke(1.dp, card.accentColor.copy(alpha = 0.7f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = card.accentColor),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = card.buttonLabel,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = card.accentColor
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                            contentDescription = null,
+                            tint = card.accentColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun openExternalUrl(context: Context, url: String) {
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }.onFailure {
+        Toast.makeText(context, "Unable to open link: $url", Toast.LENGTH_SHORT).show()
     }
 }

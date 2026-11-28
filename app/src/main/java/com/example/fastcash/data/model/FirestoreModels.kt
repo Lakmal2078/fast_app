@@ -6,13 +6,15 @@ import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.IgnoreExtraProperties
 import com.google.firebase.firestore.ServerTimestamp
 
+@Keep
+@IgnoreExtraProperties
 data class AgentDestinationAccount(
-    val id: String,
-    val bankName: String,
-    val branch: String,
-    val accountHolder: String,
-    val accountNumber: String,
-    val method: String
+    val id: String = "",
+    val bankName: String = "",
+    val branch: String = "",
+    val accountHolder: String = "",
+    val accountNumber: String = "",
+    val method: String = "Bank transfer"
 ) {
     val displayLabel: String
         get() = if (branch.isNotBlank()) "$bankName ($branch) · $accountHolder" else "$bankName · $accountHolder"
@@ -37,11 +39,11 @@ object DefaultAgentAccounts {
             method = "Bank transfer"
         ),
         AgentDestinationAccount(
-            id = "boc_walasmulla",
+            id = "boc_head_office",
             bankName = "Bank of Ceylon",
-            branch = "Walasmulla Branch",
-            accountHolder = "Pasindu Madushan",
-            accountNumber = "5014292",
+            branch = "Head Office",
+            accountHolder = "VGS Lakmal",
+            accountNumber = "0005875146",
             method = "Bank transfer"
         ),
         AgentDestinationAccount(
@@ -122,6 +124,7 @@ data class FirestoreTransaction(
     val securityCode: String? = null,
     val bank: String? = null,
     val accountNumber: String? = null,
+    val accountName: String? = null,
     val contactNumber: String? = null,
     val rejectionReason: String? = null,
     val agentNote: String? = null,
@@ -176,6 +179,7 @@ data class SavedBankPreset(
     val id: String = "",
     val bank: String = "",
     val accountNumber: String = "",
+    val accountName: String? = null,
     val contactNumber: String? = null
 )
 
@@ -200,5 +204,9 @@ data class FirestoreAppConfig(
     val minTransaction: Long = 1000L,
     val maxTransaction: Long = 500000L,
     val promoCode: String = "VGSL",
+    val agentAccounts: List<AgentDestinationAccount> = emptyList(),
     @ServerTimestamp val updatedAt: Timestamp? = null
-)
+) {
+    fun effectiveAgentAccounts(): List<AgentDestinationAccount> =
+        agentAccounts.ifEmpty { DefaultAgentAccounts.accounts }
+}
